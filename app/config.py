@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     dw_connection: str
     saved_searches: str
     sql_query: str
-    sql_query2: str
-    group_by: str
+    sql_query_have: str
+    sql_query_not_have: str
     sender_email: str
     smtp_server: str
     smtp_port: int 

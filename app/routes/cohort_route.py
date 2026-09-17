@@ -103,11 +103,25 @@ def fetch_from_db(query, params):
     if conn:
         try:
             cursor = conn.cursor()
+
+            print(">>> STARTING SQL QUERY")
             cursor.execute(query, params)
+
+            print(">>> SQL EXECUTE FINISHED - FETCHING RESULTS")
             rows = cursor.fetchall()
+
+            print(f">>> SQL QUERY COMPLETE - {len(rows)} rows returned")
+
             columns = [col[0] for col in cursor.description]
             df = pd.DataFrame.from_records(rows, columns=columns)
+            
+        except Exception as e5:
+            print(">>> SQL QUERY FAILED:", e5)
+            traceback.print_exc()
+            raise
+
         finally:
+            print(">>> CLOSING SQL CONNECTION")
             cursor.close()
             conn.close()
     return df
@@ -229,77 +243,120 @@ def process_cohort(cohort_definition: CohortDefinition):
         where_conditions = []
         params = []
         
+        # -----------------------------
+        # Mandatory: age
+        # -----------------------------
+        where_conditions.append(
+            "(YEAR(GETDATE()) - b.Year_of_Birth) BETWEEN ? AND ?"
+        )
+        params.extend([minAge, maxAge])
+        
+        
+        # -----------------------------
+        # Optional: gender
+        # -----------------------------
         if displays_gender:
             placeholders_gender = ', '.join(['?'] * len(displays_gender))
             where_conditions.append(f"b.Gender IN ({placeholders_gender})")
             params.extend(displays_gender)
         
+        # -----------------------------
+        # Optional: ethnicity
+        # -----------------------------
         if displays_ethnicity:
             placeholders_ethnicity = ', '.join(['?'] * len(displays_ethnicity))
             where_conditions.append(f"b.Ethnicity IN ({placeholders_ethnicity})")
             params.extend(displays_ethnicity)
-        
-        # Age range condition
-        where_conditions.append("(YEAR(GETDATE()) - b.Year_of_Birth) BETWEEN ? AND ?")
-        params.extend([minAge, maxAge])
-        
-        if start_date and end_date:
-            where_conditions.append("a.Adm_Dt >= ? AND a.Adm_Dt <= ?")
-            params.extend([start_date, end_date])
-        
-        second_query = settings.sql_query2
+
+        # -----------------------------
+        # Optional: admission start
+        # -----------------------------
+        if start_date:
+            where_conditions.append("a.Adm_Dt >= ?")
+            params.append(start_date)
+            
+        # -----------------------------
+        # Optional: admission end
+        # -----------------------------
+        if end_date:
+            where_conditions.append("a.Adm_Dt <= ?")        
+            params.append(end_date)
+            
+
         
         if musthave_filters:
-            snomed_blocks = []
-
+            have_blocks = []
+        
             for f in musthave_filters:
-                block_conditions = []
-
-                placeholders_have = ", ".join(["?"] * len(f["codes"]))
-                block_conditions.append(f"CAST(l.SNOMED_ConceptId AS VARCHAR(50)) IN ({placeholders_have})")
-                params.extend(f["codes"])
-
-                if f["start"]:
-                    block_conditions.append("c.DiagDt >= ?")
-                    params.append(f["start"])
-
-                if f["end"]:
-                    block_conditions.append("c.DiagDt <= ?")
-                    params.append(f["end"])
-
-                snomed_blocks.append("(" + " AND ".join(block_conditions) + ")")
-
-            where_conditions.append("(" + " OR ".join(snomed_blocks) + ")")
-
-        if mustNOT_filters:
-
-            for f in mustNOT_filters:
         
-                exclusion_conditions = []
+                conditions = []
         
-                placeholders_not = ", ".join(["?"] * len(f["codes"]))
+                placeholders = ", ".join(
+                    ["?"] * len(f["codes"])
+                )
         
-                exclusion_conditions.append(
+                conditions.append(
                     f"""
-                    CAST(l2.SNOMED_ConceptId AS VARCHAR(50)) IN ({placeholders_not})
+                    CAST(l.SNOMED_ConceptId AS VARCHAR(50))
+                    IN ({placeholders})
                     """
                 )
         
                 params.extend(f["codes"])
         
                 if f["start"]:
-                    exclusion_conditions.append("c2.DiagDt >= ?")
+                    conditions.append("c.DiagDt >= ?")
                     params.append(f["start"])
         
                 if f["end"]:
-                    exclusion_conditions.append("c2.DiagDt <= ?")
+                    conditions.append("c.DiagDt <= ?")
+                    params.append(f["end"])
+        
+                have_blocks.append(
+                    f"""
+                    EXISTS (
+                        {settings.sql_query_have}
+                        AND {' AND '.join(conditions)}
+                    )
+                    """
+                )
+        
+            where_conditions.append(
+                "(" + " OR ".join(have_blocks) + ")"
+            )
+            
+            
+        if mustNOT_filters:
+            for f in mustNOT_filters:
+        
+                conditions = []
+        
+                placeholders = ", ".join(
+                    ["?"] * len(f["codes"])
+                )
+        
+                conditions.append(
+                    f"""
+                    CAST(l2.SNOMED_ConceptId AS VARCHAR(50))
+                    IN ({placeholders})
+                    """
+                )
+        
+                params.extend(f["codes"])
+        
+                if f["start"]:
+                    conditions.append("c2.DiagDt >= ?")
+                    params.append(f["start"])
+        
+                if f["end"]:
+                    conditions.append("c2.DiagDt <= ?")
                     params.append(f["end"])
         
                 where_conditions.append(
                     f"""
                     NOT EXISTS (
-                        {second_query}
-                        AND {' AND '.join(exclusion_conditions)}
+                        {settings.sql_query_not_have}
+                        AND {' AND '.join(conditions)}
                     )
                     """
                 )
@@ -307,22 +364,17 @@ def process_cohort(cohort_definition: CohortDefinition):
         # Build final WHERE clause
         where_clause = " AND ".join(where_conditions)
         
-        group_by_statem = ''
         
-        group_by_statem = settings.group_by 
-        
-        # Final query
         final_query = f"""
             {base_query}
             WHERE {where_clause}
-            GROUP BY {group_by_statem}
         """
 
-        # print('final query')
-        # print(final_query)
+        print('final query')
+        print(final_query)
         
-        # print('params')
-        # print(params)
+        print('params')
+        print(params)
         
         # Saving query 
         filename_query = os.path.join(output_folder, f"{cohort_definition.title.replace(' ', '_')}_final_query_{datetime_title}.json")
@@ -342,8 +394,8 @@ def process_cohort(cohort_definition: CohortDefinition):
         # Total patients
         total_patients = df_results["patient_count"].sum()
         
-        # print("Total patients")
-        # print(total_patients)
+        print("Total patients")
+        print(total_patients)
         
         # Adding any included diagnoses with the count of zero
         # Group by Diagnosis from df_results
@@ -578,7 +630,8 @@ def process_cohort(cohort_definition: CohortDefinition):
             results_payload = sanitize_for_json(results_payload) 
             
             return results_payload
-            
+        
+        print(settings.demo)
         if settings.demo == 'no':
             results_payload = {
                 "title": cohort_definition.title,
