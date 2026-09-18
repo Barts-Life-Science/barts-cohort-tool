@@ -106,15 +106,53 @@ def fetch_from_db(query, params):
 
             print(">>> STARTING SQL QUERY")
             cursor.execute(query, params)
-
-            print(">>> SQL EXECUTE FINISHED - FETCHING RESULTS")
-            rows = cursor.fetchall()
-
-            print(f">>> SQL QUERY COMPLETE - {len(rows)} rows returned")
-
-            columns = [col[0] for col in cursor.description]
-            df = pd.DataFrame.from_records(rows, columns=columns)
             
+            print(">>> SQL EXECUTE FINISHED - FETCHING RESULTS")
+            
+            columns = [col[0] for col in cursor.description]
+            
+            batch_size = 500
+            batches = []
+            total_rows = 0
+            batch_number = 0
+            
+            while True:
+            
+                batch_number += 1
+            
+                # print(f">>> About to fetch batch {batch_number}")
+            
+                rows = cursor.fetchmany(batch_size)
+            
+                print(
+                    f">>> Batch {batch_number} returned {len(rows)} rows"
+                )
+            
+                if not rows:
+                    break
+            
+                batch_df = pd.DataFrame.from_records(
+                    rows,
+                    columns=columns
+                )
+            
+                batches.append(batch_df)
+            
+                total_rows += len(rows)
+            
+                print(f">>> Fetched {total_rows:,} rows")
+            
+            print(f">>> FETCH COMPLETE - {total_rows:,} rows")
+            
+            if batches:
+                print(">>> COMBINING BATCHES")
+                df = pd.concat(batches, ignore_index=True)
+            else:
+                df = pd.DataFrame(columns=columns)
+            
+            print(f">>> DATAFRAME COMPLETE")
+             
+                                
         except Exception as e5:
             print(">>> SQL QUERY FAILED:", e5)
             traceback.print_exc()
@@ -295,6 +333,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                     ["?"] * len(f["codes"])
                 )
         
+                # Filter the SNOMED code being returned by the main query
                 conditions.append(
                     f"""
                     CAST(l.SNOMED_ConceptId AS VARCHAR(50))
@@ -304,21 +343,18 @@ def process_cohort(cohort_definition: CohortDefinition):
         
                 params.extend(f["codes"])
         
+                # Optional diagnosis start date
                 if f["start"]:
                     conditions.append("c.DiagDt >= ?")
                     params.append(f["start"])
         
+                # Optional diagnosis end date
                 if f["end"]:
                     conditions.append("c.DiagDt <= ?")
                     params.append(f["end"])
         
                 have_blocks.append(
-                    f"""
-                    EXISTS (
-                        {settings.sql_query_have}
-                        AND {' AND '.join(conditions)}
-                    )
-                    """
+                    "(" + " AND ".join(conditions) + ")"
                 )
         
             where_conditions.append(
@@ -392,7 +428,7 @@ def process_cohort(cohort_definition: CohortDefinition):
         df_results = fetch_from_db(final_query, params) 
             
         # Total patients
-        total_patients = df_results["patient_count"].sum()
+        total_patients = df_results["subject_key"].nunique()
         
         print("Total patients")
         print(total_patients)
@@ -404,7 +440,7 @@ def process_cohort(cohort_definition: CohortDefinition):
             df_results["DiagCode"] = df_results["DiagCode"].astype(str)
             
             # Aggregate counts
-            diag_counts = df_results.groupby("DiagCode")["patient_count"].sum().to_dict()
+            diag_counts = df_results.groupby("DiagCode")["subject_key"].nunique().to_dict()
         else:
             diag_counts = {}
 
@@ -432,10 +468,10 @@ def process_cohort(cohort_definition: CohortDefinition):
 
                 # Gender counts
                 gender_counts = (
-                    df_results.groupby("Gender")["patient_count"]
-                    .sum()
+                    df_results.groupby("Gender")["subject_key"]
+                    .nunique()
                     .reset_index()
-                    .rename(columns={"Gender": "gender", "patient_count": "count"})
+                    .rename(columns={"Gender": "gender", "subject_key": "count"})
                 )
                 
                 gender_counts["count"] = gender_counts["count"].apply(anonymise_count)
@@ -452,11 +488,11 @@ def process_cohort(cohort_definition: CohortDefinition):
                 
                 # Ensure all labels appear even if count is 0
                 age_groups = (
-                    df_results.groupby("AgeGroup", observed=True)["patient_count"]
-                    .sum()
+                    df_results.groupby("AgeGroup", observed=True)["subject_key"]
+                    .nunique()
                     .reindex(labels, fill_value=0)  # <-- reindex ensures missing groups appear with 0
                     .reset_index()
-                    .rename(columns={"AgeGroup": "range", "patient_count": "count"})
+                    .rename(columns={"AgeGroup": "range", "subject_key": "count"})
                 )
                 
                 age_groups["count"] = age_groups["count"].apply(anonymise_count)
@@ -464,10 +500,10 @@ def process_cohort(cohort_definition: CohortDefinition):
 
                 # Ethnicity counts
                 ethnicity_counts = (
-                    df_results.groupby("Ethnicity")["patient_count"]
-                    .sum()
+                    df_results.groupby("Ethnicity")["subject_key"]
+                    .nunique()
                     .reset_index()
-                    .rename(columns={"Ethnicity": "ethnicity", "patient_count": "count"})
+                    .rename(columns={"Ethnicity": "ethnicity", "subject_key": "count"})
                 )
                 
                 ethnicity_counts["count"] = ethnicity_counts["count"].apply(anonymise_count)
@@ -486,10 +522,10 @@ def process_cohort(cohort_definition: CohortDefinition):
                 df_results["Month_Year"] = df_results["Adm_Dt"].dt.to_period('M').astype(str)
                 
                 admissions_by_month = (
-                    df_results.groupby("Month_Year")["patient_count"]
-                    .sum()
-                    .reset_index()
-                    .rename(columns={"Month_Year": "monthYear", "patient_count": "count"})
+                    df_results.groupby("Month_Year")
+                    .size()
+                    .reset_index(name="count")
+                    .rename(columns={"Month_Year": "monthYear"})
                 )
                 
                 admissions_by_month["count"] = admissions_by_month["count"].apply(anonymise_count)
@@ -501,10 +537,13 @@ def process_cohort(cohort_definition: CohortDefinition):
                 
                 # Aggregate counts by code
                 diagnoses_included = (
-                    df_results.groupby(["DiagCode", "Diagnosis"], as_index=False)["patient_count"]
-                    .sum()
-                    .reset_index()
-                    .rename(columns={"DiagCode": "code", "Diagnosis": "diagnosis", "patient_count": "count"})
+                    df_results.groupby(["DiagCode", "Diagnosis"])
+                    .size()
+                    .reset_index(name="count")
+                    .rename(columns={
+                        "DiagCode": "code",
+                        "Diagnosis": "diagnosis"
+                    })
                 )
                 
                 diagnoses_included["count"] = diagnoses_included["count"].apply(anonymise_count)
