@@ -1,7 +1,7 @@
 import './App.css';
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
-import { Button, Form, Spinner } from "react-bootstrap";
+import { Button, Form, Spinner, Modal } from "react-bootstrap";
 import SnomedSearch from "./components/SnomedSearch";
 import logo from './assets/Barts_logo.svg';
 
@@ -44,7 +44,18 @@ function CohortForm() {
   const [includeChildCodesHave, setIncludeChildCodesHave] = useState(true);
   const [includeChildCodesNotHave, setIncludeChildCodesNotHave] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [invalidAdmissionDateRange, setInvalidAdmissionDateRange] = useState(false);
+  const noCriteriaSelected =
+      selectedGenders.length === 0 &&
+      minAge === defaultAgeRange.min &&
+      maxAge === defaultAgeRange.max &&
+      ethnicity.length === 0 &&
+      !startDate &&
+      !endDate &&
+      mustHaveFindings.length === 0 &&
+      mustNotHaveFindings.length === 0;
+   
 
 
   useEffect(() => {
@@ -75,84 +86,122 @@ function CohortForm() {
     });
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setSubmitted(true);
-    
-    if (!demo && !isAllowedEmail) {
-        return;
-    }
-
-    setLoading(true);
-
-    // Helper: keep only the main code if child codes not included
-  const processFindings = (findings, includeChildren) => {
-  return findings.map(item => {
-    if (includeChildren) {
-      // keep full object as-is
-      return item;
-    } else {
-      // keep the original structure, but only the main code in codesWithDetails
-      const mainCode = Array.isArray(item.code) ? item.code[0] : item.code;
-      return {
-        ...item,
-        count: item.count, // keep the original count
-        codesWithDetails: mainCode
-          ? [{ code: mainCode.code, display: mainCode.display, count: 1 }]
-          : [],
-      };
-    }
-  });
-};
-
-  const cohortDefinition = {
-    title,
-    ...(demo ? {} : { email }),
-    gender: selectedGenders.length === 0 ? "ALL" : selectedGenders,
-    ageRange: { min: minAge, max: maxAge },
-    ethnicity: ethnicity.length === 0 ? "ALL" : ethnicity,
-    timeRange: {
-      ...(startDate && { start: startDate }),
-      ...(endDate && { end: endDate }),
-    },
-    mustHaveFindings: processFindings(mustHaveFindings, includeChildCodesHave),
-    mustNotHaveFindings: processFindings(mustNotHaveFindings, includeChildCodesNotHave),
-  };
-  
-  // console.log("Submitting cohortDefinition:", JSON.stringify(cohortDefinition, null, 2));
-
-
-    try {
-      const response = await fetch('/api/cohort/select', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cohortDefinition)
-      });
-    
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-    
-      if (demo) {
-        // Demo version: backend returns the results immediately
-        const data = await response.json();
-    
-        sessionStorage.setItem("resultsData", JSON.stringify(data));
-        sessionStorage.setItem("cohortTitle", title);
-        window.open("/results", "_blank");
-      } else {
-        // Production version: backend processes in the background
-        console.log("Setting submitted to true");
-        setSubmitted(true);
-      }
-    
-    } catch (error) {
-      console.error('Error:', error);
-      alert("There was an error processing your request.");
-    } finally {
-      setLoading(false);
-    }
-    };
+  const handleSubmit = (event) => {
+          event.preventDefault();
+        
+          if (!demo && !isAllowedEmail) {
+            return;
+          }
+        
+          if (noCriteriaSelected) {
+            alert(
+              "Please select at least one cohort criterion before submitting your request."
+            );
+            return;
+          }
+        
+          setShowConfirm(true);
+        };
+        
+        
+        const confirmSubmit = async () => {
+        
+          setShowConfirm(false);
+          setLoading(true);
+        
+          // Helper: keep only the main code if child codes not included
+          const processFindings = (findings, includeChildren) => {
+            return findings.map(item => {
+              if (includeChildren) {
+                // keep full object as-is
+                return item;
+              } else {
+                // keep the original structure, but only the main code in codesWithDetails
+                const mainCode = Array.isArray(item.code) ? item.code[0] : item.code;
+        
+                return {
+                  ...item,
+                  count: item.count,
+                  codesWithDetails: mainCode
+                    ? [{
+                        code: mainCode.code,
+                        display: mainCode.display,
+                        count: 1
+                      }]
+                    : [],
+                };
+              }
+            });
+          };
+        
+          const cohortDefinition = {
+            title,
+            ...(demo ? {} : { email }),
+            gender: selectedGenders.length === 0 ? "ALL" : selectedGenders,
+            ageRange: { min: minAge, max: maxAge },
+            ethnicity: ethnicity.length === 0 ? "ALL" : ethnicity,
+            timeRange: {
+              ...(startDate && { start: startDate }),
+              ...(endDate && { end: endDate }),
+            },
+            mustHaveFindings: processFindings(
+              mustHaveFindings,
+              includeChildCodesHave
+            ),
+            mustNotHaveFindings: processFindings(
+              mustNotHaveFindings,
+              includeChildCodesNotHave
+            ),
+          };
+        
+          try {
+        
+            const response = await fetch('/api/cohort/select', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(cohortDefinition)
+            });
+        
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+        
+            if (demo) {
+        
+              // Demo version: backend returns the results immediately
+              const data = await response.json();
+        
+              sessionStorage.setItem(
+                "resultsData",
+                JSON.stringify(data)
+              );
+        
+              sessionStorage.setItem(
+                "cohortTitle",
+                title
+              );
+        
+              window.open("/results", "_blank");
+        
+            } else {
+        
+              // Production version: backend processes in the background
+              console.log("Setting submitted to true");
+              setSubmitted(true);
+        
+            }
+        
+          } catch (error) {
+        
+            console.error('Error:', error);
+            alert("There was an error processing your request.");
+        
+          } finally {
+        
+            setLoading(false);
+        
+          }
+        };
 
   return (
     <>
@@ -548,17 +597,48 @@ function CohortForm() {
 
             <Button
               variant="primary"
-              disabled={!isTitleValid || (!demo && !isEmailValid) || loading}     
-              onClick={handleSubmit}
+              type="submit"
+              disabled={
+                !isTitleValid ||
+                (!demo && !isAllowedEmail) ||
+                noCriteriaSelected ||
+                loading
+              }
             >
               {loading ? <Spinner size="sm" /> : "Submit"}
             </Button>
-            <div style={{ fontSize: "0.85rem", color: "#6c757d", marginTop: "5px" }}>
-              Please provide a title and a valid email address.
-            </div>
+            {(!isTitleValid || (!demo && !isEmailValid)) && (
+              <div style={{ fontSize: "0.85rem", color: "#6c757d", marginTop: "5px" }}>
+                Please provide a title and a valid email address.
+              </div>
+            )}
+            
+            {noCriteriaSelected && (
+              <div style={{ fontSize: "0.85rem", color: "#6c757d", marginTop: "3px" }}>
+                  Please select at least one cohort criterion (e.g. gender, ethnicity, admission date, or must HAVE finding).
+                </div>
+            )}
           </Form>
       
           <h5 style={{ marginTop: '25px' }}>Summary of Selected Criteria</h5>
+          
+          {noCriteriaSelected && (
+              <div
+                style={{
+                  backgroundColor: "#f8d7da",
+                  color: "#842029",
+                  border: "1px solid #f5c2c7",
+                  borderRadius: "6px",
+                  padding: "12px",
+                  marginBottom: "15px",
+                  maxWidth: "700px"
+                }}
+              >
+                <strong>No cohort selection criteria have been specified.</strong>
+                <br />
+                Please select at least one criterion before submitting your request.
+              </div>
+            )}
           <ul>
             <li><strong>Title:</strong> {title || "N/A"}</li>
             {!demo && (
@@ -618,10 +698,47 @@ function CohortForm() {
         </div>
     )}
     </div>
+    <Modal
+      show={showConfirm}
+      onHide={() => setShowConfirm(false)}
+      centered
+    >
+      <Modal.Header closeButton>
+        <Modal.Title>Confirm submission</Modal.Title>
+      </Modal.Header>
+
+      <Modal.Body>
+        <p>
+          <strong>
+            Have you reviewed your selected criteria in the summary?
+          </strong>
+        </p>
+
+        <p style={{ marginBottom: 0 }}>
+          Please make sure the criteria are correct before submitting your request.
+        </p>
+      </Modal.Body>
+
+      <Modal.Footer>
+        <Button
+          variant="secondary"
+          onClick={() => setShowConfirm(false)}
+        >
+          No, go back and review
+        </Button>
+
+        <Button
+          variant="primary"
+          onClick={confirmSubmit}
+        >
+          Yes, submit request
+        </Button>
+      </Modal.Footer>
+    </Modal>
+
     </>
   );
 }
-
 // --- Results Page ---
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#AA336A"];
 

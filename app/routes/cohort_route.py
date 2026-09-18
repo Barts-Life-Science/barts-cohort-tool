@@ -406,11 +406,11 @@ def process_cohort(cohort_definition: CohortDefinition):
             WHERE {where_clause}
         """
 
-        print('final query')
-        print(final_query)
+        # print('final query')
+        # print(final_query)
         
-        print('params')
-        print(params)
+        # print('params')
+        # print(params)
         
         # Saving query 
         filename_query = os.path.join(output_folder, f"{cohort_definition.title.replace(' ', '_')}_final_query_{datetime_title}.json")
