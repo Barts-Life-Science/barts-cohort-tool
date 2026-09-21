@@ -13,6 +13,7 @@ import base64
 from io import BytesIO
 import plotly.express as px
 import os
+from html import escape
 
 
 def generate_html_report(results, filename):
@@ -32,6 +33,79 @@ def generate_html_report(results, filename):
         end = time_frame.get("end") or "Any"
     
         return f"{start} to {end}"
+    
+    # Original criteria submitted by the requester
+    criteria = results.get("selected_criteria", {})
+    
+    # Gender
+    gender = criteria.get("gender", "ALL")
+    gender_label = (
+        ", ".join(item["display"] for item in gender)
+        if isinstance(gender, list)
+        else "All"
+    )
+    
+    # Age range
+    age = criteria.get("ageRange", {})
+    age_label = f"{age.get('min', 'Any')} - {age.get('max', 'Any')}"
+    
+    # Ethnicity
+    ethnicity = criteria.get("ethnicity", "ALL")
+    ethnicity_label = (
+        ", ".join(item["display"] for item in ethnicity)
+        if isinstance(ethnicity, list)
+        else "All"
+    )
+    
+    # Admission timeframe
+    admission_label = format_timeframe(
+        criteria.get("timeRange")
+    )
+    
+    
+    # Selected findings / disorders
+    def format_findings(findings):
+    
+        if not findings:
+            return "None"
+    
+        formatted = []
+    
+        for item in findings:
+    
+            codes = item.get("code", [])
+    
+            if isinstance(codes, list) and codes:
+                main_code = codes[0]
+            elif isinstance(codes, dict):
+                main_code = codes
+            else:
+                main_code = {}
+    
+            display = main_code.get("display", "Unknown")
+            code = main_code.get("code", "")
+    
+            timeframe = format_timeframe(
+                item.get("timeFrame")
+            )
+    
+            formatted.append(
+                f"{escape(str(display))} "
+                f"(SNOMED CT: {escape(str(code))}; "
+                f"Timeframe: {escape(str(timeframe))})"
+            )
+    
+        return "<br>".join(formatted)
+    
+    
+    must_have_label = format_findings(
+        criteria.get("mustHaveFindings", [])
+    )
+    
+    must_not_have_label = format_findings(
+        criteria.get("mustNotHaveFindings", [])
+    )
+    
     
     logo_path = Path(__file__).parent / "assets" / "Barts_logo.svg"
 
@@ -114,6 +188,86 @@ def generate_html_report(results, filename):
           <strong>Requester:</strong> {results['email']}
        </p>
       
+      <!-- Summary of Selected Criteria -->
+
+        <div style="
+            background-color: #ffffff;
+            border: 1px solid #d5dce3;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 25px;
+            margin-bottom: 30px;
+        ">
+        
+            <h2 style="color: #003087; margin-top: 0;">
+                Summary of Selected Criteria
+            </h2>
+        
+            <p style="color: #666; font-size: 14px;">
+                The following criteria were submitted by the requester
+                to define the patient cohort.
+            </p>
+        
+            <table style="width: 100%; border-collapse: collapse;">
+        
+                <tr>
+                    <th style="width: 35%;">Selection criterion</th>
+                    <th>Selected value</th>
+                </tr>
+        
+                <tr>
+                    <td><strong>Gender</strong></td>
+                    <td>{escape(str(gender_label))}</td>
+                </tr>
+        
+                <tr>
+                    <td><strong>Age range</strong></td>
+                    <td>{escape(str(age_label))}</td>
+                </tr>
+        
+                <tr>
+                    <td><strong>Ethnicity</strong></td>
+                    <td>{escape(str(ethnicity_label))}</td>
+                </tr>
+        
+                <tr>
+                    <td><strong>Admission time range</strong></td>
+                    <td>{escape(str(admission_label))}</td>
+                </tr>
+        
+                <tr>
+                    <td><strong>Must HAVE Finding / Disorder</strong></td>
+                    <td>{must_have_label}</td>
+                </tr>
+        
+                <tr>
+                    <td><strong>Must NOT HAVE Finding / Disorder</strong></td>
+                    <td>{must_not_have_label}</td>
+                </tr>
+        
+            </table>
+        
+        </div>
+    
+      <div style="
+          background-color: #003087;
+          color: #ffffff;
+          padding: 20px 25px;
+          margin-top: 35px;
+          margin-bottom: 25px;
+          border-radius: 6px;
+      ">
+      
+          <h2 style="
+              color: #ffffff;
+              font-size: 28px;
+              margin: 0;
+          ">
+              Cohort Results
+          </h2>
+      
+      </div>
+      
       <p style="font-size: 24px; margin-top: 10px;">
           <strong>Total unique patients:</strong> {results['total_patients']}
        </p>
@@ -125,9 +279,11 @@ def generate_html_report(results, filename):
     
     
     if results['total_patients'] > 10:
+                
         # -------------------
         # Gender distribution
         # -------------------
+
         html += "<h2>Gender distribution (unique patients)</h2>"
     
         if len(set(g['gender'] for g in gender_data)) > 1:

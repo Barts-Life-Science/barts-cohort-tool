@@ -759,7 +759,8 @@ function ResultsPage() {
     ethnicityCounts = [],
     admissions_by_month = [],
     diagnoses_included = [],
-    diagnoses_excluded = []
+    diagnoses_excluded = [],
+    selected_criteria = []
   } = results;
   
   
@@ -768,6 +769,63 @@ function ResultsPage() {
       const end = timeFrame?.end || "Any";
       return `${start} to ${end}`;
     };
+    
+  // Original criteria selected by the requester
+    const criteria = selected_criteria || {};
+    
+    const selectedGender = criteria.gender;
+    const genderLabel = Array.isArray(selectedGender)
+      ? selectedGender.map(item => item.display).join(", ") || "All"
+      : selectedGender && selectedGender !== "ALL"
+        ? selectedGender
+        : "All";
+    
+    const selectedEthnicity = criteria.ethnicity;
+    const ethnicityLabel = Array.isArray(selectedEthnicity)
+      ? selectedEthnicity.map(item => item.display).join(", ") || "All"
+      : selectedEthnicity && selectedEthnicity !== "ALL"
+        ? selectedEthnicity
+        : "All";
+    
+    const ageLabel = criteria.ageRange
+      ? `${criteria.ageRange.min} - ${criteria.ageRange.max} years`
+      : "N/A";
+    
+    const admissionLabel = formatTimeframe(criteria.timeRange);
+    
+    
+    // Format selected findings/disorders
+    const formatSelectedFindings = (findings) => {
+      if (!findings || findings.length === 0) {
+        return "None";
+      }
+
+  return findings.map((item, index) => {
+    const mainCode = Array.isArray(item.code)
+      ? item.code[0]
+      : item.code;
+
+    const display = mainCode?.display || item.display || "Unknown";
+    const code = mainCode?.code || "";
+    const timeframe = formatTimeframe(item.timeFrame);
+
+    return (
+      <div key={index} style={{ marginBottom: "8px" }}>
+        <strong>{display}</strong>
+
+        {code && (
+          <div style={{ color: "#666", fontSize: "13px" }}>
+            SNOMED CT: {code}
+          </div>
+        )}
+
+        <div style={{ color: "#666", fontSize: "13px" }}>
+          Timeframe: {timeframe}
+        </div>
+      </div>
+    );
+  });
+};
 
   return (
     <>
@@ -844,6 +902,117 @@ function ResultsPage() {
             may therefore be counted more than once across admission
             periods and clinical categories.
           </p>
+        </div>
+        
+      {/* Summary of Selected Criteria */}
+
+        <div
+          style={{
+            backgroundColor: "#ffffff",
+            border: "1px solid #d5dce3",
+            borderRadius: "8px",
+            padding: "20px",
+            marginTop: "25px",
+            marginBottom: "30px",
+          }}
+        >
+          <h2
+            style={{
+              color: "#003087",
+              marginTop: 0,
+              marginBottom: "10px",
+              fontSize: "24px",
+            }}
+          >
+            Summary of Selected Criteria
+          </h2>
+        
+          <p
+            style={{
+              color: "#666",
+              fontSize: "14px",
+              marginBottom: "20px",
+            }}
+          >
+            The following criteria were submitted to define the patient cohort.
+          </p>
+        
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: "15px",
+            }}
+          >
+            <thead>
+              <tr>
+                <th style={{ width: "35%" }}>Selection criterion</th>
+                <th>Selected value</th>
+              </tr>
+            </thead>
+        
+            <tbody>
+              <tr>
+                <td><strong>Gender</strong></td>
+                <td>{genderLabel}</td>
+              </tr>
+        
+              <tr>
+                <td><strong>Age range</strong></td>
+                <td>{ageLabel}</td>
+              </tr>
+        
+              <tr>
+                <td><strong>Ethnicity</strong></td>
+                <td>{ethnicityLabel}</td>
+              </tr>
+        
+              <tr>
+                <td><strong>Admission time range</strong></td>
+                <td>{admissionLabel}</td>
+              </tr>
+        
+              <tr>
+                <td>
+                  <strong>Must HAVE Finding / Disorder</strong>
+                </td>
+                <td>
+                  {formatSelectedFindings(criteria.mustHaveFindings)}
+                </td>
+              </tr>
+        
+              <tr>
+                <td>
+                  <strong>Must NOT HAVE Finding / Disorder</strong>
+                </td>
+                <td>
+                  {formatSelectedFindings(criteria.mustNotHaveFindings)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+      {/* Cohort Results heading */}
+        <div
+          style={{
+            backgroundColor: "#003087",
+            color: "#ffffff",
+            padding: "20px 25px",
+            marginTop: "35px",
+            marginBottom: "25px",
+            borderRadius: "6px",
+          }}
+        >
+          <h2
+            style={{
+              color: "#ffffff",
+              fontSize: "28px",
+              margin: 0,
+            }}
+          >
+            Cohort Results
+          </h2>
         </div>
 
       {/* Cohort Summary */}

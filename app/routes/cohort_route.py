@@ -646,6 +646,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                 "results": results_json,
                 "diagnoses_included_timeframe": build_timeframe_label(cohort_definition.mustHaveFindings),
                 "diagnoses_excluded_timeframe": build_timeframe_label(cohort_definition.mustNotHaveFindings),
+                "selected_criteria": cohort_definition.model_dump(),
             }
             
             if musthaveSnomedCodes:
@@ -686,7 +687,8 @@ def process_cohort(cohort_definition: CohortDefinition):
                 "ethnicityCounts": ethnicity_counts,
                 "admissions_by_month": admissions_by_month,
                 "results": results_json,
-                "date_time_mail": datetime_mail
+                "date_time_mail": datetime_mail,
+                "selected_criteria": cohort_definition.model_dump(),
                 }
         
             if musthaveSnomedCodes:
