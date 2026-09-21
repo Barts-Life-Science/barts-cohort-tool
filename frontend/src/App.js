@@ -751,6 +751,7 @@ function ResultsPage() {
   const {
     title,
     total_patients,
+    total_records,
     minAge,
     maxAge,
     genderCounts = [],
@@ -786,18 +787,71 @@ function ResultsPage() {
         >
       <h1>Results for {title || "Untitled"} [DEMO]</h1>
       
-      <p style={{marginTop: "10px", color: "#666", textDecoration: "underline", fontSize: "14px", }}>
-          This is a demonstration version of the app. The results displayed are for illustrative purposes only and are not real clinical data.
-      </p> 
-      
-      <p style={{marginTop: "10px", color: "#666", textDecoration: "underline", fontSize: "14px", }}>
-          NOTE: Counts are rounded to the nearest 10, or shown as zero where the count is less than 10, for disclosure control purposes
-      </p>
+              <p
+          style={{
+            marginTop: "10px",
+            color: "#666",
+            textDecoration: "underline",
+            fontSize: "14px",
+          }}
+        >
+          This is a demonstration version of the app. The results displayed
+          are for illustrative purposes only and are not real clinical data.
+        </p>
+        
+        {/* Important information about the results */}
+        <div
+          style={{
+            backgroundColor: "#f4f8fb",
+            borderLeft: "5px solid #0072CE",
+            padding: "15px 20px",
+            marginTop: "25px",
+            marginBottom: "25px",
+            fontSize: "15px",
+            lineHeight: "1.6",
+          }}
+        >
+          <h3
+            style={{
+              marginTop: 0,
+              color: "#003087",
+            }}
+          >
+            Important information about the results
+          </h3>
+        
+          <p>
+            <strong>Disclosure control:</strong>{" "}
+            Counts are rounded to the nearest 10, or shown as zero where
+            the count is less than 10, to protect patient confidentiality.
+          </p>
+        
+          <p>
+            <strong>Unique patients:</strong>{" "}
+            The total patient count and demographic distributions
+            (gender, age and ethnicity) represent unique patients.
+            Each patient is counted only once within each demographic
+            distribution.
+          </p>
+        
+          <p style={{ marginBottom: 0 }}>
+            <strong>Admissions and Findings / Disorders:</strong>{" "}
+            Admission counts represent hospital admissions rather than
+            unique patients. Finding / Disorder counts represent the
+            number of records associated with each specific clinical
+            finding or disorder. A patient may have multiple admissions
+            and multiple records for the same finding or disorder and
+            may therefore be counted more than once across admission
+            periods and clinical categories.
+          </p>
+        </div>
 
       {/* Cohort Summary */}
       <div style={{ marginBottom: "20px" }}>
         <h4>Cohort Summary</h4>
-        <p>Total Patients: {total_patients || 0}</p>
+        <p>Total unique patients: {total_patients || 0}</p>
+        
+        <p>Total records (including multiple records per patient): {total_records || 0}</p>
                 
         {!total_patients && (
           <p style={{ color: "red", fontStyle: "italic" }}>No results to display</p>
@@ -810,7 +864,7 @@ function ResultsPage() {
           {/* Gender Distribution */}
           {genderCounts.length > 0 && (
             <>
-              <h3>Gender Distribution</h3>
+              <h3>Gender distribution (unique patients)</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={genderCounts}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -852,7 +906,7 @@ function ResultsPage() {
           {/* Age Distribution */}
           {ageGroups.length > 0 && (
             <>
-              <h3>Age Distribution</h3>
+              <h3>Age distribution (unique patients)</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={ageGroups}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -887,7 +941,7 @@ function ResultsPage() {
           {/* Ethnicity Distribution */}
           {ethnicityCounts.length > 0 && (
             <>
-              <h3>Ethnicity Distribution</h3>
+              <h3>Ethnicity distribution (unique patients)</h3>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
                 <PieChart width={600} height={350}>
                   <Pie

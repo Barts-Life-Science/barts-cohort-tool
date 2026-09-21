@@ -68,17 +68,59 @@ def generate_html_report(results, filename):
           Generated on {results['date_time_mail']}
       </p>
       
-      <p style="margin-top:10px;font-size:0.9em;color:#666; text-decoration: underline; font-size:14px">
-          NOTE: Counts are rounded to the nearest 10, or shown as zero where the count is less than 10, for disclosure control purposes
-      </p>
+      <div style="
+            background-color: #f4f8fb;
+            border-left: 5px solid #0072CE;
+            padding: 15px 20px;
+            margin-top: 25px;
+            margin-bottom: 25px;
+            font-size: 15px;
+            line-height: 1.6;
+        ">
+        
+            <h3 style="margin-top: 0; color: #003087;">
+                Important information about the results
+            </h3>
+        
+            <p>
+                <strong>Disclosure control:</strong>
+                Counts are rounded to the nearest 10, or shown as zero where
+                the count is less than 10, to protect patient confidentiality.
+            </p>
+        
+            <p>
+                <strong>Unique patients:</strong>
+                The total patient count and demographic distributions
+                (gender, age and ethnicity) represent unique patients.
+                Each patient is counted only once within each demographic
+                distribution.
+            </p>
+        
+            <p style="margin-bottom: 0;">
+                <strong>Admissions and Findings / Disorders:</strong>
+                Admission counts represent hospital admissions rather than
+                unique patients. Finding / Disorder counts represent the
+                number of records associated with each specific clinical
+                finding or disorder.
+        
+                A patient may have multiple admissions and multiple records
+                for the same finding or disorder and may therefore be counted
+                more than once across admission periods and clinical categories.
+            </p>
+        
+        </div>
       
       <p style="font-size: 24px; margin-top: 20px;">
           <strong>Requester:</strong> {results['email']}
        </p>
       
       <p style="font-size: 24px; margin-top: 10px;">
-          <strong>Total patients:</strong> {results['total_patients']}
+          <strong>Total unique patients:</strong> {results['total_patients']}
        </p>
+       
+       <p style="font-size: 24px; margin-top: 10px;">
+           <strong>Total records (including multiple records per patient):</strong> {results['total_records']}
+        </p>
     """
     
     
@@ -86,7 +128,7 @@ def generate_html_report(results, filename):
         # -------------------
         # Gender distribution
         # -------------------
-        html += "<h2>Gender distribution</h2>"
+        html += "<h2>Gender distribution (unique patients)</h2>"
     
         if len(set(g['gender'] for g in gender_data)) > 1:
             # Generate bar chart with Plotly
@@ -108,7 +150,7 @@ def generate_html_report(results, filename):
         # -------------------
         # Age distribution
         # -------------------
-        html += "<h2>Age distribution</h2>"
+        html += "<h2>Age distribution (unique patients)</h2>"
     
         if len({a["range"] for a in age_data}) > 1:
             fig = px.bar(
@@ -134,7 +176,7 @@ def generate_html_report(results, filename):
         # -------------------
         # Ethnicity distribution
         # -------------------
-        html += "<h2>Ethnicity distribution</h2>"
+        html += "<h2>Ethnicity distribution (unique patients)</h2>"
     
         if len(set(e['ethnicity'] for e in ethnicity_data)) > 1:
             df_eth = {
@@ -188,7 +230,7 @@ def generate_html_report(results, filename):
                 <th>Code type</th>
                 <th>Code</th>
                 <th>Timeframe</th>
-                <th>Admissions</th>
+                <th>Entries</th>
               </tr>
               {}
             </table>

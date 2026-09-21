@@ -451,7 +451,7 @@ def process_cohort(cohort_definition: CohortDefinition):
         if total_patients < 10:
             total_patients = 0
             
-            gender_counts, age_groups, ethnicity_counts, results_json, admissions_by_month, admissions_by_diagnosis = [], [], [], [], [], []
+            total_records, gender_counts, age_groups, ethnicity_counts, results_json, admissions_by_month, admissions_by_diagnosis = [], [], [], [], [], [], []
             
             age_min = "NA"
             age_max = "NA"
@@ -460,6 +460,7 @@ def process_cohort(cohort_definition: CohortDefinition):
             
             # approximating to the nearest 10 
             total_patients = round(total_patients / 10) * 10
+            total_records = len(df_results)
             
             # Build aggregated results for frontend
             if not df_results.empty:
@@ -635,6 +636,7 @@ def process_cohort(cohort_definition: CohortDefinition):
             results_payload = {
                 "title": cohort_definition.title,
                 "total_patients": int(total_patients),
+                "total_records": int(total_records),
                 "minAge": age_min,
                 "maxAge": age_max,
                 "genderCounts": gender_counts,
@@ -670,12 +672,13 @@ def process_cohort(cohort_definition: CohortDefinition):
             
             return results_payload
         
-        print(settings.demo)
+        # print(settings.demo)
         if settings.demo == 'no':
             results_payload = {
                 "title": cohort_definition.title,
                 "email": cohort_definition.email,
                 "total_patients": int(total_patients),
+                "total_records": int(total_records),
                 "minAge": age_min,
                 "maxAge": age_max,        
                 "genderCounts": gender_counts,
@@ -697,7 +700,8 @@ def process_cohort(cohort_definition: CohortDefinition):
                 "sql_query": final_query,
                 "title": cohort_definition.title,
                 "email": cohort_definition.email,
-                "total_patients": int(total_patients),       
+                "total_patients": int(total_patients),
+                "total_records": int(total_records),       
                 "genderCounts": gender_counts,
                 "ageGroups": age_groups,
                 "ethnicityCounts": ethnicity_counts,
