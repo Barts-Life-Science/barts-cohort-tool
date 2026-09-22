@@ -450,8 +450,9 @@ def process_cohort(cohort_definition: CohortDefinition):
         # Apply disclosure control: if <10, return 0
         if total_patients < 10:
             total_patients = 0
+            total_records = 0
             
-            total_records, gender_counts, age_groups, ethnicity_counts, results_json, admissions_by_month, admissions_by_diagnosis = [], [], [], [], [], [], []
+            gender_counts, age_groups, ethnicity_counts, results_json, admissions_by_month, admissions_by_diagnosis = [], [], [], [], [], []
             
             age_min = "NA"
             age_max = "NA"
@@ -555,6 +556,8 @@ def process_cohort(cohort_definition: CohortDefinition):
                 # Raw results
                 results_json = df_results.to_dict(orient="records")
             else:
+                total_patients = 0
+                total_records = 0
                 gender_counts, age_groups, ethnicity_counts, results_json, admissions_by_month, admissions_by_diagnosis = [], [], [], [], [], []
                 
                 age_min = "NA"
@@ -613,7 +616,12 @@ def process_cohort(cohort_definition: CohortDefinition):
                     "timeFrame": detail_info["timeFrame"],
                 })
                 
-        diagnoses_included = ordered_diagnoses   
+        # Order diagnoses by count (highest first)
+        diagnoses_included = sorted(
+            ordered_diagnoses,
+            key=lambda x: x["count"],
+            reverse=True
+        )  
         
         # print(admissions_by_month)
         
@@ -644,8 +652,8 @@ def process_cohort(cohort_definition: CohortDefinition):
                 "ethnicityCounts": ethnicity_counts,
                 "admissions_by_month": admissions_by_month,
                 "results": results_json,
-                "diagnoses_included_timeframe": build_timeframe_label(cohort_definition.mustHaveFindings),
-                "diagnoses_excluded_timeframe": build_timeframe_label(cohort_definition.mustNotHaveFindings),
+                "diagnoses_included": build_timeframe_label(cohort_definition.mustHaveFindings),
+                "diagnoses_excluded": build_timeframe_label(cohort_definition.mustNotHaveFindings),
                 "selected_criteria": cohort_definition.model_dump(),
             }
             
