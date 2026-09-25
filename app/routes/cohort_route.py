@@ -184,6 +184,7 @@ def process_cohort(cohort_definition: CohortDefinition):
         datetime_title = datetime_mail.replace(",", "").replace(":", "_").replace(" ", "_")
 
         output_folder = settings.saved_searches
+        
         filename = os.path.join(output_folder, f"{cohort_definition.title.replace(' ', '_')}_selected_criteria_{datetime_title}.json")
 
         # Save definition as JSON

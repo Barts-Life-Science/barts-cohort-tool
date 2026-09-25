@@ -1020,7 +1020,7 @@ function ResultsPage() {
         <h4>Cohort Summary</h4>
         <p>Total unique patients: {total_patients || 0}</p>
         
-        <p>Total records (including multiple records per patient): {total_records || 0}</p>
+        <p>Total encounters (including multiple records per patient): {total_records || 0}</p>
                 
         {!total_patients && (
           <p style={{ color: "red", fontStyle: "italic" }}>No results to display</p>

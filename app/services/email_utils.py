@@ -273,7 +273,7 @@ def generate_html_report(results, filename):
        </p>
        
        <p style="font-size: 24px; margin-top: 10px;">
-           <strong>Total records (including multiple records per patient):</strong> {results['total_records']}
+           <strong>Total encounters (including multiple records per patient):</strong> {results['total_records']}
         </p>
     """
     
@@ -456,7 +456,7 @@ def send_results_email(
     cohort_title = str,
     data_and_time = str,
     sender_email: str | None = None,
-    html_attachment_path: Path | None = None,
+    html_attachment_path: Path | None = None
 ):
     # ---- Build email ----
     msg = EmailMessage()
