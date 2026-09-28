@@ -63,3 +63,37 @@ For the production setup we build the frontend and serve it from the backend:
     ```bash
     uvicorn app.main:app --reload
     ```
+
+## Cohort data (gold)
+
+Cohort counts are computed against Azure SQL tables loaded from the Databricks
+`4_prod.gold` layer by the **SNOMED COHORT BROWSER** ADF pipeline (ADC-DF):
+
+| Table | Gold source | Grain |
+|---|---|---|
+| `cohort.person` | `gold.spine_person` | person: `birth_year`, NHS gender code (`1`/`2`/`X`), NHS ethnic category (`A`–`S`, `Z`, `99`) |
+| `cohort.condition` | `gold.clinical_condition` | coded condition event: `snomed_code`, `condition_datetime` |
+| `cohort.admission` | `gold.spine_encounter` (`encounter_level = 'spell'`) | inpatient spell: `admit_datetime`, `discharge_datetime` |
+| `cohort.procedure_event` | `gold.clinical_procedure` | procedure: `snomed_code`, `device_snomed_code` (implants), `procedure_datetime`, `encounter_id` |
+| `cohort.medication_admin` | `gold.clinical_medication_admin` | administration: `snomed_code`, `administration_datetime`, `administration_status` (e.g. `Not Done`, `In Error`), `encounter_id` |
+
+`procedure_event` and `medication_admin` are loaded for upcoming procedure/medication criteria and are
+not queried yet. Their `snomed_code` is NULL where gold has no SNOMED mapping (about 9% of procedures,
+18% of administrations); those rows update in place when a mapping arrives.
+
+Every row carries gold's `record_status`; searches count `active` rows only. The pipeline
+loads incrementally on a watermark (`mode=incremental`, 72h lookback) into `cohort_stage`
+and MERGEs into `cohort`; run it with `mode=full` periodically to pick up deletions.
+
+`DW_CONNECTION` must point at that database. `COHORT_SCHEMA` (default `cohort`) selects the
+schema. The old `SQL_QUERY` / `SQL_QUERY_NOT_HAVE` settings are no longer used and are ignored
+if still present in `.env`.
+
+Search semantics:
+- Gender and ethnicity filters match on the NHS codes sent by the frontend.
+- A patient needs an admission only when an admission timeframe is set.
+- Must-have findings: at least one block matches (each block = its codes within its timeframe).
+  Must-not-have findings: no block matches. Timeframe end dates are inclusive.
+- Counts are aggregated in SQL; the response no longer includes row-level `results`.
+  "Total encounters" is the number of admissions of the cohort (in the admission timeframe, if set);
+  diagnosis counts are condition records per must-have code.

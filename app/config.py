@@ -7,8 +7,7 @@ class Settings(BaseSettings):
     fhir_api_client_secret: str
     dw_connection: str
     saved_searches: str
-    sql_query: str
-    sql_query_not_have: str
+    cohort_schema: str = "cohort"
     sender_email: str
     smtp_server: str
     smtp_port: int 
@@ -22,6 +21,8 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'  # specify encoding if necessary
+        # Existing .env files still carry the retired SQL_QUERY / SQL_QUERY_NOT_HAVE keys.
+        extra = "ignore"
 
 settings = Settings()
 

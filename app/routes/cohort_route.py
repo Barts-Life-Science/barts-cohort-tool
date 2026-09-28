@@ -9,7 +9,6 @@ from fastapi import APIRouter
 from fastapi import BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Union, Optional
-import pyodbc
 from app.config import settings
 import app.services.fhir_client as fhir_client
 from fastapi.concurrency import run_in_threadpool
@@ -27,6 +26,7 @@ from app.config import settings
 # from app.services.report_utils import generate_report
 from app.services.email_utils import send_results_email
 from app.services.email_utils import generate_html_report
+from app.services.cohort_query import run_cohort_query
 
 router = APIRouter()
 client = fhir_client.FHIRClient()
@@ -36,16 +36,6 @@ def get_config():
     return {
         "demo": settings.demo == "yes"
     }
-
-# Database connection function
-def get_db_connection():
-    try:
-        conn = pyodbc.connect(settings.dw_connection)
-        print("Connected to SQL Server successfully!")
-    except Exception as e:
-        print("Connection failed:", e)
-        conn = None
-    return conn
 
 # Pydantic models
 class AgeRange(BaseModel):
@@ -94,77 +84,6 @@ def get_snomed_display(code: str) -> str:
         print(f"Error fetching SNOMED display for {code}: {e4}")
         return 'Unknown'
     
-def fetch_from_db(query, params):
-    """
-    Synchronous function to run a SQL query and return a DataFrame.
-    """
-    df = pd.DataFrame()
-    conn = get_db_connection()
-    if conn:
-        try:
-            cursor = conn.cursor()
-
-            print(">>> STARTING SQL QUERY")
-            cursor.execute(query, params)
-            
-            print(">>> SQL EXECUTE FINISHED - FETCHING RESULTS")
-            
-            columns = [col[0] for col in cursor.description]
-            
-            batch_size = 500
-            batches = []
-            total_rows = 0
-            batch_number = 0
-            
-            while True:
-            
-                batch_number += 1
-            
-                # print(f">>> About to fetch batch {batch_number}")
-            
-                rows = cursor.fetchmany(batch_size)
-            
-                print(
-                    f">>> Batch {batch_number} returned {len(rows)} rows"
-                )
-            
-                if not rows:
-                    break
-            
-                batch_df = pd.DataFrame.from_records(
-                    rows,
-                    columns=columns
-                )
-            
-                batches.append(batch_df)
-            
-                total_rows += len(rows)
-            
-                print(f">>> Fetched {total_rows:,} rows")
-            
-            print(f">>> FETCH COMPLETE - {total_rows:,} rows")
-            
-            if batches:
-                print(">>> COMBINING BATCHES")
-                df = pd.concat(batches, ignore_index=True)
-            else:
-                df = pd.DataFrame(columns=columns)
-            
-            print(f">>> DATAFRAME COMPLETE")
-             
-                                
-        except Exception as e5:
-            print(">>> SQL QUERY FAILED:", e5)
-            traceback.print_exc()
-            raise
-
-        finally:
-            print(">>> CLOSING SQL CONNECTION")
-            cursor.close()
-            conn.close()
-    return df
-
-
 def anonymise_count(value, threshold=10):
     """
     # Apply disclosure control:
@@ -191,14 +110,14 @@ def process_cohort(cohort_definition: CohortDefinition):
         with open(filename, "w") as f:
             json.dump(cohort_definition.model_dump(), f, indent=4, allow_nan=True)
 
-        # Extract demographics
-        displays_gender = []
+        # Extract demographics: NHS Data Dictionary codes, matched against cohort.person
+        codes_gender = []
         if cohort_definition.gender != 'ALL':
-            displays_gender = [entry.display for entry in cohort_definition.gender]
+            codes_gender = [entry.code for entry in cohort_definition.gender]
             
-        displays_ethnicity = []
+        codes_ethnicity = []
         if cohort_definition.ethnicity != 'ALL':
-            displays_ethnicity = [entry.display for entry in cohort_definition.ethnicity]
+            codes_ethnicity = [entry.code for entry in cohort_definition.ethnicity]
 
         minAge = cohort_definition.ageRange.min
         maxAge = cohort_definition.ageRange.max
@@ -275,185 +194,35 @@ def process_cohort(cohort_definition: CohortDefinition):
                         "end": item.timeFrame.end if item.timeFrame else None,
                     })
                     
-        # Base SELECT and JOIN statements
-        base_query = settings.sql_query
-        
-        # Build WHERE conditions and parameters
-        where_conditions = []
-        params = []
-        
-        # -----------------------------
-        # Mandatory: age
-        # -----------------------------
-        where_conditions.append(
-            "(YEAR(GETDATE()) - b.Year_of_Birth) BETWEEN ? AND ?"
+        # Query the gold-fed cohort tables (loaded by the SNOMED COHORT BROWSER ADF pipeline).
+        # Counts are aggregated in SQL; only the chart data comes back.
+        counts = run_cohort_query(
+            minAge, maxAge, codes_gender, codes_ethnicity,
+            start_date, end_date, musthave_filters, mustNOT_filters,
         )
-        params.extend([minAge, maxAge])
-        
-        
-        # -----------------------------
-        # Optional: gender
-        # -----------------------------
-        if displays_gender:
-            placeholders_gender = ', '.join(['?'] * len(displays_gender))
-            where_conditions.append(f"b.Gender IN ({placeholders_gender})")
-            params.extend(displays_gender)
-        
-        # -----------------------------
-        # Optional: ethnicity
-        # -----------------------------
-        if displays_ethnicity:
-            placeholders_ethnicity = ', '.join(['?'] * len(displays_ethnicity))
-            where_conditions.append(f"b.Ethnicity IN ({placeholders_ethnicity})")
-            params.extend(displays_ethnicity)
+        final_query = counts["sql"]
 
-        # -----------------------------
-        # Optional: admission start
-        # -----------------------------
-        if start_date:
-            where_conditions.append("a.Adm_Dt >= ?")
-            params.append(start_date)
-            
-        # -----------------------------
-        # Optional: admission end
-        # -----------------------------
-        if end_date:
-            where_conditions.append("a.Adm_Dt <= ?")        
-            params.append(end_date)
-            
-
-        
-        if musthave_filters:
-            have_blocks = []
-        
-            for f in musthave_filters:
-        
-                conditions = []
-        
-                placeholders = ", ".join(
-                    ["?"] * len(f["codes"])
-                )
-        
-                # Filter the SNOMED code being returned by the main query
-                conditions.append(
-                    f"""
-                    CAST(l.SNOMED_ConceptId AS VARCHAR(50))
-                    IN ({placeholders})
-                    """
-                )
-        
-                params.extend(f["codes"])
-        
-                # Optional diagnosis start date
-                if f["start"]:
-                    conditions.append("c.DiagDt >= ?")
-                    params.append(f["start"])
-        
-                # Optional diagnosis end date
-                if f["end"]:
-                    conditions.append("c.DiagDt <= ?")
-                    params.append(f["end"])
-        
-                have_blocks.append(
-                    "(" + " AND ".join(conditions) + ")"
-                )
-        
-            where_conditions.append(
-                "(" + " OR ".join(have_blocks) + ")"
-            )
-            
-            
-        if mustNOT_filters:
-            for f in mustNOT_filters:
-        
-                conditions = []
-        
-                placeholders = ", ".join(
-                    ["?"] * len(f["codes"])
-                )
-        
-                conditions.append(
-                    f"""
-                    CAST(l2.SNOMED_ConceptId AS VARCHAR(50))
-                    IN ({placeholders})
-                    """
-                )
-        
-                params.extend(f["codes"])
-        
-                if f["start"]:
-                    conditions.append("c2.DiagDt >= ?")
-                    params.append(f["start"])
-        
-                if f["end"]:
-                    conditions.append("c2.DiagDt <= ?")
-                    params.append(f["end"])
-        
-                where_conditions.append(
-                    f"""
-                    NOT EXISTS (
-                        {settings.sql_query_not_have}
-                        AND {' AND '.join(conditions)}
-                    )
-                    """
-                )
-        
-        # Build final WHERE clause
-        where_clause = " AND ".join(where_conditions)
-        
-        
-        final_query = f"""
-            {base_query}
-            WHERE {where_clause}
-        """
-
-        # print('final query')
-        # print(final_query)
-        
-        # print('params')
-        # print(params)
-        
         # Saving query 
         filename_query = os.path.join(output_folder, f"{cohort_definition.title.replace(' ', '_')}_final_query_{datetime_title}.json")
 
         with open(filename_query, "w", encoding="utf-8") as f:
             f.write(final_query)
-            
-        # # ==========================
-        # # TEMPORARY EXCEPTION TEST
-        # # ==========================
-        # raise Exception("TEST: forced processing failure")
-        
-        # Run the query
-        df_results = pd.DataFrame()
-        df_results = fetch_from_db(final_query, params) 
-            
-        # Total patients
-        total_patients = df_results["subject_key"].nunique()
-        
+
+        total_patients = counts["total_patients"]
+
         print("Total patients")
         print(total_patients)
-        
-        # Adding any included diagnoses with the count of zero
-        # Group by Diagnosis from df_results
-        if not df_results.empty:
-            # Ensure DiagCode is string
-            df_results["DiagCode"] = df_results["DiagCode"].astype(str)
-            
-            # Aggregate counts
-            diag_counts = df_results.groupby("DiagCode")["subject_key"].nunique().to_dict()
-        else:
-            diag_counts = {}
 
-        
         diagnoses_included = []
-        
+        # Row-level results are no longer returned: the report only uses the aggregates.
+        results_json = []
+
         # Apply disclosure control: if <10, return 0
         if total_patients < 10:
             total_patients = 0
             total_records = 0
             
-            gender_counts, age_groups, ethnicity_counts, results_json, admissions_by_month, admissions_by_diagnosis = [], [], [], [], [], []
+            gender_counts, age_groups, ethnicity_counts, admissions_by_month = [], [], [], []
             
             age_min = "NA"
             age_max = "NA"
@@ -462,108 +231,48 @@ def process_cohort(cohort_definition: CohortDefinition):
             
             # approximating to the nearest 10 
             total_patients = round(total_patients / 10) * 10
-            total_records = len(df_results)
-            
-            # Build aggregated results for frontend
-            if not df_results.empty:
-                # Ensure DiagCode is string
-                df_results["DiagCode"] = df_results["DiagCode"].astype(str)
+            total_records = anonymise_count(counts["total_records"])
 
-                # Gender counts
-                gender_counts = (
-                    df_results.groupby("Gender")["subject_key"]
-                    .nunique()
-                    .reset_index()
-                    .rename(columns={"Gender": "gender", "subject_key": "count"})
-                )
-                
-                gender_counts["count"] = gender_counts["count"].apply(anonymise_count)
-                gender_counts = gender_counts.to_dict(orient="records")
+            gender_counts = [
+                {"gender": gender, "count": anonymise_count(n)}
+                for gender, n in counts["gender_counts"]
+            ]
 
-                # Age groups (bucket by decades)
-                current_year = pd.to_datetime("today").year
-                df_results["Age"] = current_year - df_results["Year_of_Birth"]
-                
-                bins = [18, 30, 40, 50, 60, 70, 80, 90, 100, float("inf")]
-                labels = ["18-29","30-39","40-49","50-59","60-69","70-79","80-89","90-99","100+"]
-                
-                df_results["AgeGroup"] = pd.cut(df_results["Age"], bins=bins, labels=labels, right=False)
-                
-                # Ensure all labels appear even if count is 0
-                age_groups = (
-                    df_results.groupby("AgeGroup", observed=True)["subject_key"]
-                    .nunique()
-                    .reindex(labels, fill_value=0)  # <-- reindex ensures missing groups appear with 0
-                    .reset_index()
-                    .rename(columns={"AgeGroup": "range", "subject_key": "count"})
-                )
-                
-                age_groups["count"] = age_groups["count"].apply(anonymise_count)
-                age_groups = age_groups.to_dict(orient="records")
+            # Age groups (bucket by decades); all labels appear even if count is 0
+            bins = [18, 30, 40, 50, 60, 70, 80, 90, 100, float("inf")]
+            labels = ["18-29","30-39","40-49","50-59","60-69","70-79","80-89","90-99","100+"]
+            ages = pd.DataFrame(counts["ages"], columns=["age", "count"])
+            ages["range"] = pd.cut(ages["age"], bins=bins, labels=labels, right=False)
+            age_groups = (
+                ages.groupby("range", observed=False)["count"]
+                .sum()
+                .reindex(labels, fill_value=0)
+                .reset_index()
+            )
+            age_groups["count"] = age_groups["count"].apply(anonymise_count)
+            age_groups = age_groups.to_dict(orient="records")
 
-                # Ethnicity counts
-                ethnicity_counts = (
-                    df_results.groupby("Ethnicity")["subject_key"]
-                    .nunique()
-                    .reset_index()
-                    .rename(columns={"Ethnicity": "ethnicity", "subject_key": "count"})
-                )
-                
-                ethnicity_counts["count"] = ethnicity_counts["count"].apply(anonymise_count)
-                ethnicity_counts = ethnicity_counts.to_dict(orient="records")
-                
-                # Overall age range
-                if df_results["Age"].notna().any():
-                    age_min = int(df_results["Age"].min(skipna=True))
-                    age_max = int(df_results["Age"].max(skipna=True))
-                else:
-                    age_min = "NA"
-                    age_max = "NA"
-                    
-                # --- Admissions by Month-Year ---
-                df_results["Adm_Dt"] = pd.to_datetime(df_results["Adm_Dt"])
-                df_results["Month_Year"] = df_results["Adm_Dt"].dt.to_period('M').astype(str)
-                
-                admissions_by_month = (
-                    df_results.groupby("Month_Year")
-                    .size()
-                    .reset_index(name="count")
-                    .rename(columns={"Month_Year": "monthYear"})
-                )
-                
-                admissions_by_month["count"] = admissions_by_month["count"].apply(anonymise_count)
-                admissions_by_month = admissions_by_month.to_dict(orient="records")
-                
-                # --- Diagnoses included ---
-                # Ensure DiagCode is string
-                df_results["DiagCode"] = df_results["DiagCode"].astype(str)
-                
-                # Aggregate counts by code
-                diagnoses_included = (
-                    df_results.groupby(["DiagCode", "Diagnosis"])
-                    .size()
-                    .reset_index(name="count")
-                    .rename(columns={
-                        "DiagCode": "code",
-                        "Diagnosis": "diagnosis"
-                    })
-                )
-                
-                diagnoses_included["count"] = diagnoses_included["count"].apply(anonymise_count)
-                diagnoses_included = diagnoses_included.to_dict(orient="records")
-                
-                # print(diagnoses_included)
-                
-                # Raw results
-                results_json = df_results.to_dict(orient="records")
-            else:
-                total_patients = 0
-                total_records = 0
-                gender_counts, age_groups, ethnicity_counts, results_json, admissions_by_month, admissions_by_diagnosis = [], [], [], [], [], []
-                
-                age_min = "NA"
-                age_max = "NA"
-        
+            ethnicity_counts = [
+                {"ethnicity": ethnicity, "count": anonymise_count(n)}
+                for ethnicity, n in counts["ethnicity_counts"]
+            ]
+
+            # Overall age range
+            age_min = int(counts["age_min"]) if counts["age_min"] is not None else "NA"
+            age_max = int(counts["age_max"]) if counts["age_max"] is not None else "NA"
+
+            # --- Admissions by Month-Year ---
+            admissions_by_month = [
+                {"monthYear": month_year, "count": anonymise_count(n)}
+                for month_year, n in counts["admissions_by_month"]
+            ]
+
+            # --- Diagnoses included --- (condition records per must-have code)
+            diagnoses_included = [
+                {"code": str(code), "diagnosis": str(code), "count": anonymise_count(n)}
+                for code, n in counts["diagnosis_counts"]
+            ]
+
         # Build a set of diagnoses already included
         if diagnoses_included:
             existing_diagnoses = {d["diagnosis"] for d in diagnoses_included}
