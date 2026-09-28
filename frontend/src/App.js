@@ -269,39 +269,50 @@ function CohortForm() {
                </div>
           ) : (
               <div style={{ margin: '20px 0 20px 20px', maxWidth: '1200px', width: '95%' }}>
-                  {demo ? (
-                      <>
-                       
-                      <h1>Cohort Builder [DEMO]</h1> 
-                      <p style={{ textDecoration: "underline" }}>
-                          This is a demonstration version of the app. The results displayed are for illustrative purposes only and are not real clinical data.
-                      </p> 
-                        
-                      <p>Use this form to create a cohort by defining the selection criteria. </p>
-                      <p>
-                          If you have any issues, feedback, or comments, or if you would like to use the Cohort Builder with real clinical data please email the Barts Life Sciences team at&nbsp;  
-                          <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">bartshealth.bls.cohortingtool@nhs.net</a>
-                      </p>
-                      </>
-                    ) : (
-                     <>
-                        <h1>Cohort Builder</h1>
-                        <p
-                            style={{
-                              fontSize: "1.1rem",
-                              fontWeight: "600",
-                              marginBottom: "8px",
-                            }}
-                          >
-                           Supporting research cohort discovery and feasibility. </p>
-                        <p> Use this form to create a cohort by defining the selection criteria. </p>
-                        <p>
-                          If you have any issues, feedback, or comments, please email the Barts Life Sciences team at&nbsp;  
-                          <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">bartshealth.bls.cohortingtool@nhs.net</a>
+                  <>
+                      <h1>
+                        Cohort Builder {demo && "[DEMO]"}
+                      </h1>
+                    
+                      {demo ? (
+                        <p style={{ textDecoration: "underline" }}>
+                          This is a demonstration version of the app. The results displayed are
+                          for illustrative purposes only and are not real clinical data.
                         </p>
-                        
+                      ) : (
+                        <p
+                          style={{
+                            fontSize: "1.1rem",
+                            fontWeight: "600",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          Supporting research cohort discovery and feasibility.
+                        </p>
+                      )}
+                    
+                      <p>
+                        Use this form to create a cohort by defining the selection criteria.{" "}
+                        <br />
+                        For guidance on how to use the Cohort Builder, please see the{" "}
+                        <a
+                          href="/manual/Patient_Cohorting_Tool_User_Manual.pdf"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          User Manual
+                        </a>.
+                      </p>
+                    
+                      <p>
+                        If you have any issues, feedback, or comments,
+                        {demo && " or if you would like to use the Cohort Builder with real clinical data"}
+                        , please email the Barts Life Sciences team at&nbsp;
+                        <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">
+                          bartshealth.bls.cohortingtool@nhs.net
+                        </a>
+                      </p>
                     </>
-                    )}
                     
                     
                     <Form
