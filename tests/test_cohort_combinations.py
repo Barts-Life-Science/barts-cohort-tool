@@ -42,7 +42,7 @@ def test_age_range_parameter_order(runner,lower,upper):
 ])
 def test_gender_selection(runner,gender,expected):
     sql,params,_=runner(gender=gender)
-    assert ('p.gender_display IN (' in sql)==bool(expected)
+    assert ('b.Gender IN (' in sql)==bool(expected)
     assert params==[18,120]+expected
 
 @pytest.mark.parametrize('ethnicity,expected',[
@@ -51,14 +51,14 @@ def test_gender_selection(runner,gender,expected):
 ])
 def test_ethnicity_selection(runner,ethnicity,expected):
     sql,params,_=runner(ethnicity=ethnicity)
-    assert ('p.ethnic_category_display IN (' in sql)==bool(expected)
+    assert ('b.Ethnicity IN (' in sql)==bool(expected)
     assert params==[18,120]+expected
 
 @pytest.mark.parametrize('start,end',[(None,None),('2026-01-01',None),(None,'2026-12-31'),('2026-01-01','2026-12-31')])
 def test_admission_date_selection(runner,start,end):
     sql,params,_=runner(timeRange={'start':start,'end':end})
-    assert ('a.admit_datetime >= ?' in sql)==bool(start)
-    assert ('a.admit_datetime <= ?' in sql)==bool(end)
+    assert ('a.Adm_Dt >= ?' in sql)==bool(start)
+    assert ('a.Adm_Dt <= ?' in sql)==bool(end)
     assert params==[18,120]+([start] if start else [])+([end] if end else [])
 
 @pytest.mark.parametrize('items,expected',[
@@ -75,8 +75,8 @@ def test_have_code_selection(runner,items,expected):
 @pytest.mark.parametrize('start,end',[(None,None),('2025-01-01',None),(None,'2025-12-31'),('2025-01-01','2025-12-31')])
 def test_have_diagnosis_dates(runner,start,end):
     sql,params,_=runner(mustHaveFindings=[codes('111',start=start,end=end)])
-    assert ('c.condition_datetime >= ?' in sql)==bool(start)
-    assert ('c.condition_datetime <= ?' in sql)==bool(end)
+    assert ('c.DiagDt >= ?' in sql)==bool(start)
+    assert ('c.DiagDt <= ?' in sql)==bool(end)
     assert params==[18,120,'111']+([start] if start else [])+([end] if end else [])
 
 @pytest.mark.parametrize('items,expected',[
@@ -91,6 +91,6 @@ def test_not_have_code_selection(runner,items,expected):
 @pytest.mark.parametrize('start,end',[(None,None),('2025-01-01',None),(None,'2025-12-31'),('2025-01-01','2025-12-31')])
 def test_not_have_diagnosis_dates(runner,start,end):
     sql,params,_=runner(mustNotHaveFindings=[codes('111',start=start,end=end)])
-    assert ('c2.condition_datetime >= ?' in sql)==bool(start)
-    assert ('c2.condition_datetime <= ?' in sql)==bool(end)
+    assert ('c2.DiagDt >= ?' in sql)==bool(start)
+    assert ('c2.DiagDt <= ?' in sql)==bool(end)
     assert params==[18,120,'111']+([start] if start else [])+([end] if end else [])
