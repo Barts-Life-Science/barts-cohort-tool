@@ -404,7 +404,7 @@ def process_cohort(cohort_definition: CohortDefinition):
         
         final_query = f"""
             {base_query}
-            WHERE {where_clause}
+            AND {where_clause}
         """
 
         # print('final query')
