@@ -286,7 +286,7 @@ def process_cohort(cohort_definition: CohortDefinition):
         # Mandatory: age
         # -----------------------------
         where_conditions.append(
-            "(YEAR(GETDATE()) - b.Year_of_Birth) BETWEEN ? AND ?"
+            "(YEAR(GETDATE()) - p.birth_year) BETWEEN ? AND ?"
         )
         params.extend([minAge, maxAge])
         
@@ -296,7 +296,7 @@ def process_cohort(cohort_definition: CohortDefinition):
         # -----------------------------
         if displays_gender:
             placeholders_gender = ', '.join(['?'] * len(displays_gender))
-            where_conditions.append(f"b.Gender IN ({placeholders_gender})")
+            where_conditions.append(f"p.gender_display IN ({placeholders_gender})")
             params.extend(displays_gender)
         
         # -----------------------------
@@ -304,21 +304,21 @@ def process_cohort(cohort_definition: CohortDefinition):
         # -----------------------------
         if displays_ethnicity:
             placeholders_ethnicity = ', '.join(['?'] * len(displays_ethnicity))
-            where_conditions.append(f"b.Ethnicity IN ({placeholders_ethnicity})")
+            where_conditions.append(f"p.ethnic_category_display IN ({placeholders_ethnicity})")
             params.extend(displays_ethnicity)
 
         # -----------------------------
         # Optional: admission start
         # -----------------------------
         if start_date:
-            where_conditions.append("a.Adm_Dt >= ?")
+            where_conditions.append("a.admit_datetime >= ?")
             params.append(start_date)
             
         # -----------------------------
         # Optional: admission end
         # -----------------------------
         if end_date:
-            where_conditions.append("a.Adm_Dt <= ?")        
+            where_conditions.append("a.admit_datetime <= ?")        
             params.append(end_date)
             
 
@@ -346,12 +346,12 @@ def process_cohort(cohort_definition: CohortDefinition):
         
                 # Optional diagnosis start date
                 if f["start"]:
-                    conditions.append("c.DiagDt >= ?")
+                    conditions.append("c.condition_datetime >= ?")
                     params.append(f["start"])
         
                 # Optional diagnosis end date
                 if f["end"]:
-                    conditions.append("c.DiagDt <= ?")
+                    conditions.append("c.condition_datetime <= ?")
                     params.append(f["end"])
         
                 have_blocks.append(
@@ -382,11 +382,11 @@ def process_cohort(cohort_definition: CohortDefinition):
                 params.extend(f["codes"])
         
                 if f["start"]:
-                    conditions.append("c2.DiagDt >= ?")
+                    conditions.append("c2.condition_datetime >= ?")
                     params.append(f["start"])
         
                 if f["end"]:
-                    conditions.append("c2.DiagDt <= ?")
+                    conditions.append("c2.condition_datetime <= ?")
                     params.append(f["end"])
         
                 where_conditions.append(
