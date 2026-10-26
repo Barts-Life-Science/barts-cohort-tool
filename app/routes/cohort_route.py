@@ -43,8 +43,8 @@ def get_db_connection():
         conn = pyodbc.connect(settings.dw_connection)
         print("Connected to SQL Server successfully!")
     except Exception as e:
-        print("Connection failed:", e)
-        conn = None
+        print(">>> DATABASE CONNECTION FAILED:", e)
+        raise
     return conn
 
 # Pydantic models
@@ -425,8 +425,18 @@ def process_cohort(cohort_definition: CohortDefinition):
         # raise Exception("TEST: forced processing failure")
         
         # Run the query
-        df_results = pd.DataFrame()
+        # df_results = pd.DataFrame()
         df_results = fetch_from_db(final_query, params) 
+                
+        print(">>> DATAFRAME SHAPE:", df_results.shape)
+        print(">>> DATAFRAME COLUMNS:", df_results.columns.tolist())
+        print(">>> DATAFRAME EMPTY:", df_results.empty)
+        
+        if "subject_key" not in df_results.columns:
+            raise ValueError(
+                f"Missing subject_key column. "
+                f"Available columns: {df_results.columns.tolist()}"
+            )
             
         # Total patients
         total_patients = df_results["subject_key"].nunique()

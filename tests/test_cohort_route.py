@@ -59,9 +59,15 @@ def test_snomed_display_exception(monkeypatch):
     monkeypatch.setattr(route.client,'search_snomed',Mock(side_effect=RuntimeError('offline')))
     assert route.get_snomed_display('123456')=='Unknown'
 
-def test_db_connection_failure_returns_none(monkeypatch):
-    monkeypatch.setattr(route.pyodbc,'connect',Mock(side_effect=ConnectionError('offline')))
-    assert route.get_db_connection() is None
+def test_db_connection_failure_raises_error(monkeypatch):
+    monkeypatch.setattr(
+        route.pyodbc,
+        "connect",
+        Mock(side_effect=ConnectionError("offline"))
+    )
+
+    with pytest.raises(ConnectionError, match="offline"):
+        route.get_db_connection()
 
 def test_db_connection_success(monkeypatch):
     connection=Mock()
