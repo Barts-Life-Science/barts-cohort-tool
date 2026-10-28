@@ -13,19 +13,34 @@ def test_include_inactive_appends_history(code):
 ])
 def test_category_search(monkeypatch,endpoint,term,ecl):
     call=Mock(return_value={'found':True})
-    monkeypatch.setattr(route.client,'search_snomed',call)
+    monkeypatch.setattr(
+    route.client,
+    'search_snomed',
+    call,
+    raising=False
+)
     assert asyncio.run(endpoint(term))=={'found':True}
     call.assert_called_once_with(ecl,term)
 
 def test_snomed_search_expands_history(monkeypatch):
     call=Mock(return_value={'found':True})
-    monkeypatch.setattr(route.client,'search_snomed',call)
+    monkeypatch.setattr(
+    route.client,
+    'search_snomed',
+    call,
+    raising=False
+)
     asyncio.run(route.search_snomed('<123456','test'))
     call.assert_called_once_with('(<123456) {{ %2B HISTORY-MAX }}','test')
 
 def test_count_descendants(monkeypatch):
     call=Mock(return_value={'total':10})
-    monkeypatch.setattr(route.client,'search_snomed',call)
+    monkeypatch.setattr(
+    route.client,
+    'search_snomed',
+    call,
+    raising=False
+)
     assert asyncio.run(route.snomed_count_descendants('123456'))=={'total':10}
     call.assert_called_once_with('<<123456 {{ %2B HISTORY-MAX }}','',1)
 
