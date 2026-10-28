@@ -52,11 +52,11 @@ def test_snomed_display_happy_path(monkeypatch):
     assert route.get_snomed_display('123456')=='Example'
 
 def test_snomed_display_missing_entry(monkeypatch):
-    monkeypatch.setattr(route.client,'search_snomed',Mock(return_value={}))
+    monkeypatch.setattr(route.client, 'search_snomed', Mock(return_value={}), raising=False)
     assert route.get_snomed_display('123456')=='Unknown'
 
 def test_snomed_display_exception(monkeypatch):
-    monkeypatch.setattr(route.client,'search_snomed',Mock(side_effect=RuntimeError('offline')))
+    monkeypatch.setattr(route.client, 'search_snomed', Mock(side_effect=RuntimeError('offline')), raising=False)
     assert route.get_snomed_display('123456')=='Unknown'
 
 def test_db_connection_failure_raises_error(monkeypatch):
@@ -82,14 +82,14 @@ def test_fetch_from_db_empty_without_connection(monkeypatch):
 
 def test_fetch_from_db_multiple_batches_and_closes(monkeypatch):
     cursor=Mock()
-    cursor.description=[('birth_year',),('person_id',)]
-    cursor.fetchmany.side_effect=[[(1984,1),(1990,2)],[(2000,3)],[]]
+    cursor.description=[('DOB',),('person_id',)]
+    cursor.fetchmany.side_effect=[[('1984-06-15',1),('1990-03-20',2)], [('2000-09-10',3)], []]
     connection=Mock()
     connection.cursor.return_value=cursor
     monkeypatch.setattr(route,'get_db_connection',lambda:connection)
     frame=route.fetch_from_db('SELECT ?', [1])
     assert frame.shape==(3,2)
-    assert list(frame.columns)==['birth_year','person_id']
+    assert list(frame.columns)==['DOB','person_id']
     assert frame['person_id'].tolist()==[1,2,3]
     cursor.execute.assert_called_once_with('SELECT ?',[1])
     assert all(c.args==(500,) for c in cursor.fetchmany.call_args_list)
