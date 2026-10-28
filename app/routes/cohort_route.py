@@ -539,8 +539,13 @@ def process_cohort(cohort_definition: CohortDefinition):
                 df_results["Adm_Dt"] = pd.to_datetime(df_results["Adm_Dt"])
                 df_results["Month_Year"] = df_results["Adm_Dt"].dt.to_period('M').astype(str)
                 
+                # Identify unique admissions
+                unique_admissions = df_results.drop_duplicates(
+                    subset=["subject_key", "Adm_Dt"]
+                )
+                
                 admissions_by_month = (
-                    df_results.groupby("Month_Year")
+                    unique_admissions.groupby("Month_Year")
                     .size()
                     .reset_index(name="count")
                     .rename(columns={"Month_Year": "monthYear"})
@@ -550,12 +555,19 @@ def process_cohort(cohort_definition: CohortDefinition):
                 admissions_by_month = admissions_by_month.to_dict(orient="records")
                 
                 # --- Diagnoses included ---
+                # Identify unique diagnosis occurrences
+                df_results["DiagDt"] = pd.to_datetime(df_results["DiagDt"])
+
                 # Ensure DiagCode is string
                 df_results["DiagCode"] = df_results["DiagCode"].astype(str)
                 
+                unique_diagnoses = df_results.drop_duplicates(
+                    subset=["subject_key", "DiagCode", "DiagDt"]
+                )
+                
                 # Aggregate counts by code
                 diagnoses_included = (
-                    df_results.groupby(["DiagCode", "Diagnosis"])
+                    unique_diagnoses.groupby(["DiagCode", "Diagnosis"])
                     .size()
                     .reset_index(name="count")
                     .rename(columns={
