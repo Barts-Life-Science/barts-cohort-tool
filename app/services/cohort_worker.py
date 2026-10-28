@@ -46,22 +46,34 @@ def _worker_loop(worker_id: int) -> None:
             _queue.nack(item)  # returns item to 'ready' for retry
 
     logger.info(f"[Worker-{worker_id}] stopped")
+    
+    
+def initialise_queue(auto_resume=False):
+    global _queue
+
+    if _queue is None:
+        os.makedirs(settings.queue_data_path, exist_ok=True)
+
+        _queue = persistqueue.SQLiteAckQueue(
+            path=settings.queue_data_path,
+            name="cohort_jobs",
+            multithreading=True,
+            auto_commit=True,
+            auto_resume=auto_resume,
+        )
+
+    return _queue
 
 
 def start_workers() -> None:
-    global _queue, _stop_event, _worker_threads
+    global _stop_event, _worker_threads
 
-    os.makedirs(settings.queue_data_path, exist_ok=True)
+    initialise_queue(auto_resume=True)
 
     _stop_event = threading.Event()
-    _queue = persistqueue.SQLiteAckQueue(
-        path=settings.queue_data_path,
-        name="cohort_jobs",
-        multithreading=True,
-        auto_commit=True,
-    )
 
     _worker_threads = []
+
     for i in range(settings.worker_count):
         t = threading.Thread(
             target=_worker_loop,
@@ -72,8 +84,11 @@ def start_workers() -> None:
         t.start()
         _worker_threads.append(t)
 
-    logger.info(f"Started {settings.worker_count} cohort worker thread(s).")
-
+    print(
+        f">>> Started {settings.worker_count} queue workers "
+        f"in PID {os.getpid()}",
+        flush=True
+    )
 
 def stop_workers() -> None:
     logger.info("Signalling cohort workers to stop...")
