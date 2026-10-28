@@ -286,9 +286,9 @@ def process_cohort(cohort_definition: CohortDefinition):
         # Mandatory: age
         # -----------------------------
         where_conditions.append(
-            "(YEAR(GETDATE()) - p.birth_year) BETWEEN ? AND ?"
+            "p.birth_date BETWEEN DATEADD(YEAR, -?, CAST(GETDATE() AS DATE)) AND DATEADD(YEAR, -?, CAST(GETDATE() AS DATE))"
         )
-        params.extend([minAge, maxAge])
+        params.extend([maxAge + 1, minAge])
         
         
         # -----------------------------
@@ -491,8 +491,13 @@ def process_cohort(cohort_definition: CohortDefinition):
                 gender_counts = gender_counts.to_dict(orient="records")
 
                 # Age groups (bucket by decades)
-                current_year = pd.to_datetime("today").year
-                df_results["Age"] = current_year - df_results["Year_of_Birth"]
+                today = pd.to_datetime("today")
+                dob = pd.to_datetime(df_results["DOB"])
+                
+                df_results["Age"] = today.year - dob.dt.year - (
+                    (dob.dt.month > today.month) |
+                    ((dob.dt.month == today.month) & (dob.dt.day > today.day))
+                )
                 
                 bins = [18, 30, 40, 50, 60, 70, 80, 90, 100, float("inf")]
                 labels = ["18-29","30-39","40-49","50-59","60-69","70-79","80-89","90-99","100+"]
