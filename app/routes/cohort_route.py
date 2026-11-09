@@ -590,9 +590,9 @@ def process_cohort(cohort_definition: CohortDefinition):
                 age_min = "NA"
                 age_max = "NA"
         
-        # Build a set of diagnoses already included
-        if diagnoses_included:
-            existing_diagnoses = {d["diagnosis"] for d in diagnoses_included}
+        # # Build a set of diagnoses already included
+        # if diagnoses_included:
+        #     existing_diagnoses = {d["diagnosis"] for d in diagnoses_included}
             
        
         # Build mapping: DISPLAY -> CODE for must-have findings

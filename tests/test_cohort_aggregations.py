@@ -108,6 +108,7 @@ def test_finding_records_not_multiplied_by_admission_join(
         }]
     )
 
+    assert result['diagnoses_included'][0]['code'] == '111'
     assert result['diagnoses_included'][0]['count'] == 20 * findings
     
 @pytest.mark.parametrize('n', [1,5,9])
