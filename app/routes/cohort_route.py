@@ -567,12 +567,11 @@ def process_cohort(cohort_definition: CohortDefinition):
                 
                 # Aggregate counts by code
                 diagnoses_included = (
-                    unique_diagnoses.groupby(["DiagCode", "Diagnosis"])
+                    unique_diagnoses.groupby(["DiagCode"])
                     .size()
                     .reset_index(name="count")
                     .rename(columns={
-                        "DiagCode": "code",
-                        "Diagnosis": "diagnosis"
+                        "DiagCode": "code"
                     })
                 )
                 
