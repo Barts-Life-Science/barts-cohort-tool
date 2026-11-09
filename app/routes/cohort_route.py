@@ -285,9 +285,15 @@ def process_cohort(cohort_definition: CohortDefinition):
         # -----------------------------
         # Mandatory: age
         # -----------------------------
-        where_conditions.append(
-            "p.birth_date BETWEEN DATEADD(YEAR, -?, CAST(GETDATE() AS DATE)) AND DATEADD(YEAR, -?, CAST(GETDATE() AS DATE))"
-        )
+        if settings.demo == 'yes':
+            where_conditions.append(
+                "p.Year_of_Birth BETWEEN YEAR(GETDATE()) - ? AND YEAR(GETDATE()) - ?"
+            )            
+        
+        if settings.demo == 'no':
+            where_conditions.append(
+                "p.birth_date BETWEEN DATEADD(YEAR, -?, CAST(GETDATE() AS DATE)) AND DATEADD(YEAR, -?, CAST(GETDATE() AS DATE))"
+            )
         params.extend([maxAge + 1, minAge])
         
         
@@ -296,7 +302,11 @@ def process_cohort(cohort_definition: CohortDefinition):
         # -----------------------------
         if displays_gender:
             placeholders_gender = ', '.join(['?'] * len(displays_gender))
-            where_conditions.append(f"p.gender_display IN ({placeholders_gender})")
+            if settings.demo == 'yes':
+                where_conditions.append(f"p.Gender IN ({placeholders_gender})")
+                
+            if settings.demo == 'no':
+                where_conditions.append(f"p.gender_display IN ({placeholders_gender})")
             params.extend(displays_gender)
         
         # -----------------------------
@@ -304,21 +314,37 @@ def process_cohort(cohort_definition: CohortDefinition):
         # -----------------------------
         if displays_ethnicity:
             placeholders_ethnicity = ', '.join(['?'] * len(displays_ethnicity))
-            where_conditions.append(f"p.ethnic_category_display IN ({placeholders_ethnicity})")
+            if settings.demo == 'yes':
+                where_conditions.append(f"p.Ethnicity IN ({placeholders_ethnicity})")
+                
+            if settings.demo == 'no':
+                where_conditions.append(f"p.ethnic_category_display IN ({placeholders_ethnicity})")
+                
             params.extend(displays_ethnicity)
 
         # -----------------------------
         # Optional: admission start
         # -----------------------------
         if start_date:
-            where_conditions.append("a.admit_datetime >= ?")
+            if settings.demo == 'yes':
+                where_conditions.append("a.Adm_Dt >= ?")
+                
+            if settings.demo == 'no':
+                where_conditions.append("a.admit_datetime >= ?")
+            
             params.append(start_date)
             
         # -----------------------------
         # Optional: admission end
         # -----------------------------
         if end_date:
-            where_conditions.append("a.admit_datetime <= ?")        
+            if settings.demo == 'yes':
+                where_conditions.append("a.Adm_Dt <= ?") 
+                
+            if settings.demo == 'no':
+                where_conditions.append("a.admit_datetime <= ?") 
+                
+                   
             params.append(end_date)
             
 
@@ -335,23 +361,40 @@ def process_cohort(cohort_definition: CohortDefinition):
                 )
         
                 # Filter the SNOMED code being returned by the main query
-                conditions.append(
-                    f"""
-                    CAST(l.SNOMED_ConceptId AS VARCHAR(50))
-                    IN ({placeholders})
-                    """
-                )
+                if settings.demo == 'yes':
+                    conditions.append(
+                        f"""
+                        CAST(l.SNOMED_ConceptId AS VARCHAR(50))
+                        IN ({placeholders})
+                        """
+                    )
+                    
+                if settings.demo == 'no':
+                    conditions.append(
+                        f"""
+                        CAST(l.SNOMED_ConceptId AS VARCHAR(50))
+                        IN ({placeholders})
+                        """
+                    )
         
                 params.extend(f["codes"])
         
                 # Optional diagnosis start date
                 if f["start"]:
-                    conditions.append("c.condition_datetime >= ?")
+                    if settings.demo == 'yes':
+                        conditions.append("c.DiagDt >= ?")
+                        
+                    if settings.demo == 'no':
+                        conditions.append("c.condition_datetime >= ?")
                     params.append(f["start"])
         
                 # Optional diagnosis end date
                 if f["end"]:
-                    conditions.append("c.condition_datetime <= ?")
+                    if settings.demo == 'yes':
+                        conditions.append("c.DiagDt <= ?")
+                        
+                    if settings.demo == 'no':
+                        conditions.append("c.condition_datetime <= ?")
                     params.append(f["end"])
         
                 have_blocks.append(
@@ -371,23 +414,45 @@ def process_cohort(cohort_definition: CohortDefinition):
                 placeholders = ", ".join(
                     ["?"] * len(f["codes"])
                 )
-        
-                conditions.append(
-                    f"""
-                    CAST(l2.SNOMED_ConceptId AS VARCHAR(50))
-                    IN ({placeholders})
-                    """
-                )
-        
+                
+                if settings.demo == 'yes':
+                    conditions.append(
+                        f"""
+                        CAST(l2.SNOMED_ConceptId AS VARCHAR(50))
+                        IN ({placeholders})
+                        """
+                    )
+                
+                if settings.demo == 'no':                    
+                    conditions.append(
+                        f"""
+                        CAST(l2.SNOMED_ConceptId AS VARCHAR(50))
+                        IN ({placeholders})
+                        """
+                    )
+            
                 params.extend(f["codes"])
-        
+                
                 if f["start"]:
-                    conditions.append("c2.condition_datetime >= ?")
+                    
+                    if settings.demo == 'yes': 
+                        conditions.append("c2.condition_datetime >= ?")
+                    
+                    if settings.demo == 'no': 
+                        conditions.append("c2.condition_datetime >= ?")
+                        
+                        
                     params.append(f["start"])
         
                 if f["end"]:
-                    conditions.append("c2.condition_datetime <= ?")
-                    params.append(f["end"])
+                    
+                    if settings.demo == 'yes': 
+                        conditions.append("c2.condition_datetime <= ?")
+                    
+                    if settings.demo == 'no': 
+                        conditions.append("c2.condition_datetime <= ?")
+                        
+                    params.append(f["end"])    
         
                 where_conditions.append(
                     f"""
@@ -399,7 +464,11 @@ def process_cohort(cohort_definition: CohortDefinition):
                 )
         
         # Build final WHERE clause
-        where_clause = " AND ".join(where_conditions)
+        if settings.demo == 'yes': 
+            where_clause = " AND ".join(where_conditions)
+        
+        if settings.demo == 'no': 
+            where_clause = " AND ".join(where_conditions)
         
         
         final_query = f"""
@@ -492,12 +561,26 @@ def process_cohort(cohort_definition: CohortDefinition):
 
                 # Age groups (bucket by decades)
                 today = pd.to_datetime("today")
-                dob = pd.to_datetime(df_results["DOB"])
                 
-                df_results["Age"] = today.year - dob.dt.year - (
-                    (dob.dt.month > today.month) |
-                    ((dob.dt.month == today.month) & (dob.dt.day > today.day))
-                )
+                if settings.demo == "yes":
+
+                    # Demo database contains Year_of_Birth only
+                    df_results["Age"] = (
+                        today.year - pd.to_numeric(
+                            df_results["Year_of_Birth"],
+                            errors="coerce"
+                        )
+                    )
+                
+                if settings.demo == "no":
+                    # Production database contains full DOB
+                    dob = pd.to_datetime(df_results["DOB"], errors="coerce")
+                
+                    df_results["Age"] = today.year - dob.dt.year - (
+                        (dob.dt.month > today.month) |
+                        ((dob.dt.month == today.month) & (dob.dt.day > today.day))
+                    )
+
                 
                 bins = [18, 30, 40, 50, 60, 70, 80, 90, 100, float("inf")]
                 labels = ["18-29","30-39","40-49","50-59","60-69","70-79","80-89","90-99","100+"]
