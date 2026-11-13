@@ -436,7 +436,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                 if f["start"]:
                     
                     if settings.demo == 'yes': 
-                        conditions.append("c2.condition_datetime >= ?")
+                        conditions.append("c2.DiagDt >= ?")
                     
                     if settings.demo == 'no': 
                         conditions.append("c2.condition_datetime >= ?")
@@ -447,7 +447,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                 if f["end"]:
                     
                     if settings.demo == 'yes': 
-                        conditions.append("c2.condition_datetime <= ?")
+                        conditions.append("c2.DiagDt <= ?")
                     
                     if settings.demo == 'no': 
                         conditions.append("c2.condition_datetime <= ?")
