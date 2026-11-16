@@ -617,25 +617,76 @@ def process_cohort(cohort_definition: CohortDefinition):
                 else:
                     age_min = "NA"
                     age_max = "NA"
-                    
+                                    
                 # --- Admissions by Month-Year ---
-                df_results["Adm_Dt"] = pd.to_datetime(df_results["Adm_Dt"])
-                df_results["Month_Year"] = df_results["Adm_Dt"].dt.to_period('M').astype(str)
+                
+                df_results["Adm_Dt"] = pd.to_datetime(
+                    df_results["Adm_Dt"], errors="coerce"
+                )
                 
                 # Identify unique admissions
-                unique_admissions = df_results.drop_duplicates(
+                unique_admissions = df_results.dropna(
+                    subset=["Adm_Dt"]
+                ).drop_duplicates(
                     subset=["subject_key", "Adm_Dt"]
+                ).copy()
+
+                # Group admissions by month-year
+                unique_admissions["Month_Year"] = (
+                    unique_admissions["Adm_Dt"].dt.to_period("M")
                 )
                 
                 admissions_by_month = (
                     unique_admissions.groupby("Month_Year")
                     .size()
-                    .reset_index(name="count")
-                    .rename(columns={"Month_Year": "monthYear"})
                 )
                 
-                admissions_by_month["count"] = admissions_by_month["count"].apply(anonymise_count)
-                admissions_by_month = admissions_by_month.to_dict(orient="records")
+                # Determine the display date range
+                # Use the admission dates selected by the user
+                if start_date:
+                    display_start = pd.to_datetime(start_date)
+                else:
+                    display_start = unique_admissions["Adm_Dt"].min()
+                
+                if end_date:
+                    display_end = pd.to_datetime(end_date)
+                else:
+                    display_end = unique_admissions["Adm_Dt"].max()
+                
+                # Generate every month in the selected range
+                if pd.notna(display_start) and pd.notna(display_end):
+                    all_months = pd.period_range(
+                        start=display_start,
+                        end=display_end,
+                        freq="M"
+                    )
+                
+                    # Add missing months with zero admissions
+                    admissions_by_month = (
+                        admissions_by_month
+                        .reindex(all_months, fill_value=0)
+                        .reset_index()
+                    )
+                
+                    admissions_by_month.columns = ["monthYear", "count"]
+                
+                    # Convert Period to string for JSON
+                    admissions_by_month["monthYear"] = (
+                        admissions_by_month["monthYear"].astype(str)
+                    )
+                
+                    # Apply disclosure control
+                    admissions_by_month["count"] = (
+                        admissions_by_month["count"]
+                        .apply(anonymise_count)
+                    )
+                
+                    admissions_by_month = (
+                        admissions_by_month.to_dict(orient="records")
+                    )
+                else:
+                    admissions_by_month = []
+
                 
                 # --- Diagnoses included ---
                 # Identify unique diagnosis occurrences
@@ -968,7 +1019,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                     
                 send_results_email(
                     to_email=settings.failure_email,
-                    subject="Cohort Submission: {cohort_definition.title} - Failed Request 2",
+                    subject=f"Cohort Submission: {cohort_definition.title} - Failed Request 2",
                     html_body=html_email_body,
                     # pdf_path=None, #pdf_path
                     sender_email=settings.sender_email,
@@ -994,7 +1045,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                         </p>
                     
                         <p>
-                          Please review the documentation of the tool before tring to submit another request.
+                          Please review the documentation of the tool before trying to submit another request.
                         </p>
                     
                         <p>
@@ -1021,7 +1072,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                 
                 send_results_email(
                     to_email=cohort_definition.email,
-                    subject="Cohort Submission: {cohort_definition.title} - Failed Request 2",
+                    subject=f"Cohort Submission: {cohort_definition.title} - Failed Request 2",
                     html_body=html_email_body_user,
                     # pdf_path=None, #pdf_path
                     sender_email=settings.sender_email,
@@ -1045,6 +1096,14 @@ def process_cohort(cohort_definition: CohortDefinition):
             
             error_trace = traceback.format_exc()
             
+            # Identify SQL Server login timeout errors
+            is_db_login_timeout = (
+                isinstance(e2, pyodbc.OperationalError)
+                and "HYT00" in str(e2)
+                and "Login timeout expired" in str(e2)
+            )
+            
+                       
             html_email_body = f"""
                 <html>
                   <body style="font-family: Arial, sans-serif; line-height: 1.5;">
@@ -1076,6 +1135,26 @@ def process_cohort(cohort_definition: CohortDefinition):
                   </body>
                 </html>
                 """
+            
+            # Select the message based on the error type
+            if is_db_login_timeout:
+                user_instructions = """
+                    <p>
+                      Unfortunately, we were unable to complete your request
+                      due to a temporary technical issue.
+                    </p>
+            
+                    <p>
+                      Please try submitting your request again.
+                    </p>
+                """
+            else:
+                user_instructions = """
+                    <p>
+                      Please review the documentation of the tool before
+                      trying to submit another request.
+                    </p>
+                """
                 
             html_email_body_user = f"""
                 <html>
@@ -1088,9 +1167,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                       has <span style="color:red;"><b>failed</b></span> during processing.
                     </p>
                 
-                    <p>
-                      Please review the documentation of the tool before tring to submit another request.
-                    </p>
+                    {user_instructions}
                 
                     <p>
                       If you still have issues please email the
@@ -1117,7 +1194,7 @@ def process_cohort(cohort_definition: CohortDefinition):
             if settings.demo == 'yes':
                 send_results_email(
                     to_email=settings.failure_email,
-                    subject="Cohort Submission: {cohort_definition.title} - Failed Request 1",
+                    subject=f"Cohort Submission: {cohort_definition.title} - Failed Request 1",
                     html_body=html_email_body,
                     # pdf_path=None, #pdf_path
                     smtp_server=settings.smtp_server,
@@ -1132,7 +1209,7 @@ def process_cohort(cohort_definition: CohortDefinition):
             if settings.demo == 'no':
                 send_results_email(
                     to_email=settings.failure_email,
-                    subject="Cohort Submission: {cohort_definition.title} - Failed Request 1",
+                    subject=f"Cohort Submission: {cohort_definition.title} - Failed Request 1",
                     html_body=html_email_body,
                     # pdf_path=None, #pdf_path
                     sender_email=settings.sender_email,
@@ -1147,7 +1224,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                 
                 send_results_email(
                     to_email=cohort_definition.email,
-                    subject="Cohort Submission: {cohort_definition.title} - Failed Request 1",
+                    subject=f"Cohort Submission: {cohort_definition.title} - Failed Request 1",
                     html_body=html_email_body_user,
                     # pdf_path=None, #pdf_path
                     sender_email=settings.sender_email,
