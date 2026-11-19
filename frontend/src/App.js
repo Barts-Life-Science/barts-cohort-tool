@@ -270,27 +270,45 @@ function CohortForm() {
           ) : (
               <div style={{ margin: '20px 0 20px 20px', maxWidth: '1200px', width: '95%' }}>
                   <>
-                      <h1>
-                        Cohort Builder {demo && "[DEMO]"}
-                      </h1>
+                      <h1 style={{ marginBottom: "10px" }}>
+                          Cohort Builder {demo && "[DEMO]"}
+                        </h1>
                     
                       {demo ? (
-                        <p style={{ textDecoration: "underline" }}>
-                          This is a demonstration version of the app. The results displayed are
-                          for illustrative purposes only and are not real clinical data.
+                        <p>
+                          <strong>This is a demonstration version of the app. The results displayed are
+                          for illustrative purposes only and are not real clinical data. <br />
+                          If you would like to use the Cohort Builder with real clinical data or 
+                          you have any issues, feedback, or comments
+                          please email the Barts Life Sciences team at&nbsp; 
+                          <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">
+                            bartshealth.bls.cohortingtool@nhs.net
+                            </a>
+                          </strong>
                         </p>
+                        
                       ) : (
-                        <p
-                          style={{
-                            fontSize: "1.1rem",
-                            fontWeight: "600",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          Supporting research cohort discovery and feasibility.
-                        </p>
+                        <>
+                          <p
+                            style={{
+                              fontSize: "1.1rem",
+                              fontWeight: "600",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            Supporting research cohort discovery and feasibility.
+                          </p>
+                        
+                          <p>
+                            If you have any issues, feedback, or comments,
+                            please email the Barts Life Sciences team at&nbsp;
+                            <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">
+                              bartshealth.bls.cohortingtool@nhs.net
+                            </a>
+                          </p>
+                        </>
                       )}
-                    
+                     
                       <p>
                         Use this form to create a cohort by defining the selection criteria.{" "}
                         <br />
@@ -301,17 +319,9 @@ function CohortForm() {
                           rel="noopener noreferrer"
                         >
                           User Manual
-                        </a>.
-                      </p>
-                    
-                      <p>
-                        If you have any issues, feedback, or comments,
-                        {demo && " or if you would like to use the Cohort Builder with real clinical data"}
-                        , please email the Barts Life Sciences team at&nbsp;
-                        <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">
-                          bartshealth.bls.cohortingtool@nhs.net
                         </a>
-                      </p>
+                      </p>                   
+                      
                     </>
                     
                     
