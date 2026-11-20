@@ -205,13 +205,6 @@ function CohortForm() {
 
   return (
     <>
-    <div style={{ position: "fixed", top: "20px", right: "20px", zIndex: 1000 }}>
-      <img
-        src={logo}
-        alt="Logo"
-        style={{  width: "15vw", minWidth: "80px", maxWidth: "250px", height: "auto" }}
-        />
-    </div>
     
     <div style={{ margin: '20px 0 20px 20px', maxWidth: '1200px', width: '95%' }}> 
          {submitted && !demo ? (
@@ -268,62 +261,89 @@ function CohortForm() {
                  )}
                </div>
           ) : (
-              <div style={{ margin: '20px 0 20px 20px', maxWidth: '1200px', width: '95%' }}>
                   <>
-                      <h1 style={{ marginBottom: "10px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: "30px",
+                        marginBottom: "20px",
+                        flexWrap: "wrap"
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: "250px" }}>
+                        <h1 style={{ marginBottom: "10px" }}>
                           Cohort Builder {demo && "[DEMO]"}
                         </h1>
-                    
-                      {demo ? (
-                        <p>
-                          <strong>This is a demonstration version of the app. The results displayed are
-                          for illustrative purposes only and are not real clinical data. <br />
-                          If you would like to use the Cohort Builder with real clinical data or 
-                          you have any issues, feedback, or comments
-                          please email the Barts Life Sciences team at&nbsp; 
-                          <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">
-                            bartshealth.bls.cohortingtool@nhs.net
-                            </a>
-                          </strong>
-                        </p>
-                        
-                      ) : (
-                        <>
-                          <p
-                            style={{
-                              fontSize: "1.1rem",
-                              fontWeight: "600",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            Supporting research cohort discovery and feasibility.
-                          </p>
-                        
+                
+                        {demo ? (
                           <p>
-                            If you have any issues, feedback, or comments,
-                            please email the Barts Life Sciences team at&nbsp;
-                            <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">
-                              bartshealth.bls.cohortingtool@nhs.net
-                            </a>
+                            <strong>
+                              This is a demonstration version of the app.
+                              The results displayed are for illustrative
+                              purposes only and are not real clinical data.
+                              <br />
+                              If you would like to use the Cohort Builder
+                              with real clinical data or you have any issues,
+                              feedback, or comments, please email the Barts
+                              Life Sciences team at&nbsp;
+                              <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">
+                                bartshealth.bls.cohortingtool@nhs.net
+                              </a>
+                            </strong>
                           </p>
-                        </>
-                      )}
-                     
-                      <p>
-                        Use this form to create a cohort by defining the selection criteria.{" "}
-                        <br />
-                        For guidance on how to use the Cohort Builder, please see the{" "}
-                        <a
-                          href="/manual/Patient_Cohorting_Tool_User_Manual.pdf"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          User Manual
-                        </a>
-                      </p>                   
-                      
-                    </>
-                    
+                        ) : (
+                          <>
+                            <p
+                              style={{
+                                fontSize: "1.1rem",
+                                fontWeight: "600",
+                                marginBottom: "8px"
+                              }}
+                            >
+                              Supporting research cohort discovery and feasibility.
+                            </p>
+                
+                            <p>
+                              If you have any issues, feedback, or comments,
+                              please email the Barts Life Sciences team at&nbsp;
+                              <a href="mailto:bartshealth.bls.cohortingtool@nhs.net">
+                                bartshealth.bls.cohortingtool@nhs.net
+                              </a>
+                            </p>
+                          </>
+                        )}
+                      </div>
+                
+                      <img
+                        src={logo}
+                        alt="Barts Health NHS Trust"
+                        style={{
+                          width: "15vw",
+                          minWidth: "80px",
+                          maxWidth: "250px",
+                          height: "auto",
+                          flexShrink: 0
+                        }}
+                      />
+                    </div>
+                
+                    <p>
+                      Use this form to create a cohort by defining the
+                      selection criteria.{" "}
+                      <br />
+                      For guidance on how to use the Cohort Builder,
+                      please see the{" "}
+                      <a
+                        href="/manual/Patient_Cohorting_Tool_User_Manual.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        User Manual
+                      </a>
+                    </p>
+                                    
                     
                     <Form
                       onSubmit={handleSubmit}
@@ -716,7 +736,7 @@ function CohortForm() {
                     .join(", ")}
             </li>
           </ul>
-        </div>
+        </>
     )}
     </div>
     <Modal
@@ -850,13 +870,6 @@ function ResultsPage() {
 
   return (
     <>
-    <div style={{ position: "fixed", top: "20px", right: "20px", zIndex: 1000 }}>
-        <img
-          src={logo}
-          alt="Logo"
-          style={{  width: "15vw", minWidth: "80px", maxWidth: "250px", height: "auto" }}
-        />
-    </div>
     <div
           style={{
             margin: "20px 0 20px 20px",
@@ -864,19 +877,48 @@ function ResultsPage() {
             width: "95%"
           }}
         >
-      <h1>Results for {title || "Untitled"} [DEMO]</h1>
       
-              <p
+        <div
           style={{
-            marginTop: "10px",
-            color: "#666",
-            textDecoration: "underline",
-            fontSize: "14px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: "30px",
+            marginBottom: "20px",
+            flexWrap: "wrap"
           }}
         >
-          This is a demonstration version of the app. The results displayed
-          are for illustrative purposes only and are not real clinical data.
-        </p>
+          <div style={{ flex: 1, minWidth: "250px" }}>
+            <h1 style={{ marginBottom: "10px" }}>
+              Results for {title || "Untitled"} [DEMO]
+            </h1>
+        
+            <p
+              style={{
+                marginTop: "10px",
+                color: "#666",
+                textDecoration: "underline",
+                fontSize: "14px"
+              }}
+            >
+              This is a demonstration version of the app.
+              The results displayed are for illustrative purposes
+              only and are not real clinical data.
+            </p>
+          </div>
+        
+          <img
+            src={logo}
+            alt="Barts Health NHS Trust"
+            style={{
+              width: "15vw",
+              minWidth: "80px",
+              maxWidth: "250px",
+              height: "auto",
+              flexShrink: 0
+            }}
+          />
+        </div>
         
         {/* Important information about the results */}
         <div
