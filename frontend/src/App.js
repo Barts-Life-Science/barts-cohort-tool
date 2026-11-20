@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-route
 import { Button, Form, Spinner, Modal } from "react-bootstrap";
 import SnomedSearch from "./components/SnomedSearch";
 import logo from './assets/Barts_logo.svg';
+import { set, get } from "idb-keyval";
 
 import { ethnicityOptions, genderOptions, defaultAgeRange } from './config/formOptions';
 
@@ -167,22 +168,23 @@ function CohortForm() {
             }
         
             if (demo) {
-        
+
               // Demo version: backend returns the results immediately
               const data = await response.json();
-        
-              sessionStorage.setItem(
-                "resultsData",
-                JSON.stringify(data)
-              );
-        
-              sessionStorage.setItem(
-                "cohortTitle",
-                title
-              );
-        
+            
+              // Log the response size for debugging
+              const jsonSizeMB = new Blob([JSON.stringify(data)]).size / (1024 * 1024);
+              console.log("Results JSON size:", jsonSizeMB.toFixed(2), "MB");
+            
+              // Store results in IndexedDB instead of sessionStorage
+              await set("resultsData", data);
+            
+              // Store cohort title (small value)
+              sessionStorage.setItem("cohortTitle", title);
+            
+              // Open results in a new tab
               window.open("/results", "_blank");
-        
+            
             } else {
         
               // Production version: backend processes in the background
@@ -784,10 +786,54 @@ function CohortForm() {
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#AA336A"];
 
 function ResultsPage() {
-  const savedResults = sessionStorage.getItem("resultsData");
-  const results = savedResults ? JSON.parse(savedResults) : null;
 
-  if (!results) return <p>No results to display.</p>;
+  const [results, setResults] = useState(null);
+  const [loadingResults, setLoadingResults] = useState(true);
+  const [resultsError, setResultsError] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadResults = async () => {
+      try {
+        const savedResults = await get("resultsData");
+
+        if (active) {
+          setResults(savedResults || null);
+        }
+
+      } catch (error) {
+        console.error("Error loading results:", error);
+
+        if (active) {
+          setResultsError("Unable to load the saved results.");
+        }
+
+      } finally {
+        if (active) {
+          setLoadingResults(false);
+        }
+      }
+    };
+
+    loadResults();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loadingResults) {
+    return <p>Loading results...</p>;
+  }
+
+  if (resultsError) {
+    return <p style={{ color: "red" }}>{resultsError}</p>;
+  }
+
+  if (!results) {
+    return <p>No results to display.</p>;
+  }
 
   const {
     title,
