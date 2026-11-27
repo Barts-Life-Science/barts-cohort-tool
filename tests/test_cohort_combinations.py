@@ -236,10 +236,15 @@ def test_have_code_selection(runner, items, expected):
         mustHaveFindings=items
     )
 
-    assert 'CAST(l.SNOMED_ConceptId AS VARCHAR(50))' in sql
+    column = (
+        'CAST(l.SNOMED_ConceptId AS VARCHAR(50))'
+        if runner.demo == 'yes'
+        else 'CAST(c.snomed_code AS VARCHAR(50))'
+    )
+
+    assert column in sql
     assert params == [121, 18] + expected
     assert (' OR ' in sql) == (len(items) > 1)
-
 
 @pytest.mark.parametrize(
     'start,end',
