@@ -372,7 +372,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                 if settings.demo == 'no':
                     conditions.append(
                         f"""
-                        CAST(l.SNOMED_ConceptId AS VARCHAR(50))
+                        CAST(c.snomed_code AS VARCHAR(50))
                         IN ({placeholders})
                         """
                     )
@@ -426,7 +426,7 @@ def process_cohort(cohort_definition: CohortDefinition):
                 if settings.demo == 'no':                    
                     conditions.append(
                         f"""
-                        CAST(l2.SNOMED_ConceptId AS VARCHAR(50))
+                        CAST(c2.snomed_code AS VARCHAR(50))
                         IN ({placeholders})
                         """
                     )
@@ -476,8 +476,8 @@ def process_cohort(cohort_definition: CohortDefinition):
             AND {where_clause}
         """
 
-        # print('final query')
-        # print(final_query)
+        print('final query')
+        print(final_query)
         
         # print('params')
         # print(params)
